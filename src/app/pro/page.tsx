@@ -14,6 +14,7 @@ export default function ProDashboard() {
   const totalValue = demo ? DEMO_HUB.home_value + 1120000 : hubs.length * 1200000;
   const commission = Math.round((totalValue * 0.025) / 1000) * 1000;
   const selling = hubs.filter((h) => h.journey === "selling").length;
+  const buying = hubs.filter((h) => h.journey !== "selling" && h.journey !== "sold" && (h.buying_started_at || h.journey === "buying")).length;
   const joined = contacts.filter((c) => c.joined > 0).length;
   const invited = contacts.filter((c) => c.pending > 0).length;
   const unclaimed = Math.max(0, contacts.length - joined - invited);
@@ -47,10 +48,19 @@ export default function ProDashboard() {
           </Card>
         ))}
       </div>
-      {selling > 0 && (
-        <Link href={`/pro/hubs${q}`} className="mt-3 inline-flex items-center gap-1.5 rounded-full bg-coral/10 px-3 py-1.5 text-[12px] font-extrabold text-coral hover:bg-coral/20">
-          <Flame size={13} /> {selling} homeowner{selling === 1 ? "" : "s"} in selling mode
-        </Link>
+      {(selling > 0 || buying > 0) && (
+        <div className="mt-3 flex flex-wrap gap-2">
+          {selling > 0 && (
+            <Link href={`/pro/hubs${q}`} className="inline-flex items-center gap-1.5 rounded-full bg-coral/10 px-3 py-1.5 text-[12px] font-extrabold text-coral hover:bg-coral/20">
+              <Flame size={13} /> {selling} homeowner{selling === 1 ? "" : "s"} in selling mode
+            </Link>
+          )}
+          {buying > 0 && (
+            <Link href={`/pro/hubs${q}`} className="inline-flex items-center gap-1.5 rounded-full bg-teal-soft px-3 py-1.5 text-[12px] font-extrabold text-teal-deep hover:opacity-80">
+              <Flame size={13} /> {buying} shopping for their next home
+            </Link>
+          )}
+        </div>
       )}
 
       <div className="mt-6 grid gap-6 lg:grid-cols-[1fr_360px]">

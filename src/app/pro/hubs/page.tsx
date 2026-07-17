@@ -15,9 +15,10 @@ export default function ProHubs() {
   const { hubs, demo } = usePro();
   const q = demo ? "?demo=1" : "";
 
-  // Live sellers first, sold second, everyone else after — agents scan top-down.
-  const rank = (j?: string) => (j === "selling" ? 0 : j === "sold" ? 1 : 2);
-  const sorted = [...hubs].sort((a, b) => rank(a.journey) - rank(b.journey));
+  // Live sellers first, sold second, active buyers third — agents scan top-down.
+  const rank = (h: { journey?: string; buying_started_at?: string | null }) =>
+    h.journey === "selling" ? 0 : h.journey === "sold" ? 1 : h.buying_started_at || h.journey === "buying" ? 2 : 3;
+  const sorted = [...hubs].sort((a, b) => rank(a) - rank(b));
 
   return (
     <div className="px-4 py-6 sm:px-6 lg:px-8">
@@ -41,6 +42,9 @@ export default function ProHubs() {
                 )}
                 {h.journey === "sold" && (
                   <span className="shrink-0 rounded-full bg-amber-50 px-2.5 py-0.5 text-[11px] font-extrabold text-amber-700">Sold</span>
+                )}
+                {h.journey !== "selling" && h.journey !== "sold" && (h.buying_started_at || h.journey === "buying") && (
+                  <span className="shrink-0 rounded-full bg-teal-soft px-2.5 py-0.5 text-[11px] font-extrabold text-teal-deep">Buying</span>
                 )}
               </div>
               <p className="text-xs text-gray-400">

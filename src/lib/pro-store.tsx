@@ -19,6 +19,7 @@ export type ProHubRow = {
   journey?: "buying" | "owning" | "selling" | "sold";
   selling_started_at?: string | null;
   listing_status?: "preparing" | "listed" | "offers" | "sold" | null;
+  buying_started_at?: string | null;
 };
 export type ProActivity = { id: string; hub: string; member: string; action: string; detail: string | null; when: string };
 export type ProState = {
@@ -61,7 +62,7 @@ export function ProProvider({ children, demo }: { children: React.ReactNode; dem
           hubs: [
             // Dana clicked "Sell My Home" on Jul 10, then kicked off her selling plan — the live one.
             { id: "h1", address: DEMO_HUB.full_address, contact: "Dana Whitfield", updated: "2 hours ago", journey: "selling", listing_status: "preparing", selling_started_at: "2026-07-13T16:45:00Z" },
-            { id: "h2", address: "1444 W 8th Ave #302, Vancouver, BC", contact: "Sam Okafor", updated: "2 days ago", journey: "owning" },
+            { id: "h2", address: "1444 W 8th Ave #302, Vancouver, BC", contact: "Sam Okafor", updated: "2 days ago", journey: "owning", buying_started_at: "2026-07-15T18:20:00Z" },
           ],
           recommended: saved.recommended ?? PROVIDERS.filter((p) => p.recommended).map((p) => p.id),
           activities: DEMO_ACTIVITIES as unknown as ProActivity[],
@@ -77,7 +78,7 @@ export function ProProvider({ children, demo }: { children: React.ReactNode; dem
         supa.from("ho_profiles").select("*").eq("id", uidv).maybeSingle(),
         supa.from("ho_contacts").select("*").eq("pro_id", uidv).order("created_at", { ascending: false }),
         supa.from("ho_advisors").select("*").eq("pro_id", uidv),
-        supa.from("ho_hubs").select("id,full_address,address1,created_at,journey,selling_started_at,listing_status,ho_hub_members(first_name,last_name)").eq("pro_id", uidv),
+        supa.from("ho_hubs").select("id,full_address,address1,created_at,journey,selling_started_at,listing_status,buying_started_at,ho_hub_members(first_name,last_name)").eq("pro_id", uidv),
         supa.from("ho_recommendations").select("provider_id").eq("pro_id", uidv),
         supa.from("ho_activities").select("id,action,detail,member_email,created_at,ho_hubs!inner(address1,pro_id)").eq("ho_hubs.pro_id", uidv).order("created_at", { ascending: false }).limit(25),
         supa.from("ho_leads").select("*").eq("pro_id", uidv).order("created_at", { ascending: false }).limit(10),
@@ -100,6 +101,7 @@ export function ProProvider({ children, demo }: { children: React.ReactNode; dem
             journey: (hh.journey as ProHubRow["journey"]) ?? "owning",
             selling_started_at: (hh.selling_started_at as string | null) ?? null,
             listing_status: (hh.listing_status as ProHubRow["listing_status"]) ?? null,
+            buying_started_at: (hh.buying_started_at as string | null) ?? null,
           };
         }),
         recommended: ((recs as { provider_id: string }[]) || []).map((r) => r.provider_id),
