@@ -40,6 +40,9 @@ export default function MyHomeOverview() {
                 <div className="flex justify-between py-2.5"><span className="text-gray-500">Purchase price</span><span className="tabular font-bold">{hub?.purchase_price ? cad(hub.purchase_price) : "—"}</span></div>
                 <div className="flex justify-between py-2.5"><span className="text-gray-500">Purchase date</span><span className="font-bold">{hub?.purchase_date ? fmtDate(hub.purchase_date) : "—"}</span></div>
               </div>
+              <Link href={`/hub/report${q}`} className="mt-4 flex w-full items-center justify-center gap-1.5 rounded-full bg-teal-soft px-4 py-2.5 text-[13px] font-bold text-teal-deep transition hover:bg-teal hover:text-white">
+                📄 View annual report
+              </Link>
               <button className="link mx-auto mt-3 block text-sm" onClick={() => setEdit(true)}>Update home details</button>
             </Card>
 

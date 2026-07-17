@@ -221,6 +221,13 @@ export default function HubDashboard() {
           </section>
 
           <section>
+            <Link href={`/hub/report${q}`} className="block rounded-2xl border border-teal/30 bg-teal-soft p-4 transition hover:border-teal">
+              <p className="text-sm font-extrabold text-teal-deep">📄 Your {new Date().getFullYear()} Home Report is ready</p>
+              <p className="mt-0.5 text-[12px] leading-relaxed text-teal-deep/80">Value, equity, wins, and the year ahead — one page. View it →</p>
+            </Link>
+          </section>
+
+          <section>
             <SectionLabel>Leave feedback</SectionLabel>
             <Card className="p-5 text-sm">
               <p className="font-bold">How are we doing?</p>

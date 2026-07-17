@@ -235,11 +235,23 @@ OPEN (build roadmap — agreed sequence):
 - P1 also: JULY Search API into buyer playbook (saved/viewed/liked, tours),
   JULY Value gap badges, BuyerAiPro scan-from-hub (mint internal key via its
   scripts/make-api-key.mjs), inspection-scan → inventory graduation bridge.
-- P2: unified CRM event timeline; JULY Answer (ONE receptionist, modes).
+- P2: unified CRM event timeline (SHIPPED wave 3); JULY Answer (ONE
+  receptionist, modes).
+- **JULY SIGN DISCOVERY (2026-07-17): NO API today.** julysign.com is a
+  consumer app (login/signup/pricing; /developers, /docs, /api/v1/* all
+  404; repo not on this machine — JULYGroupSites is the lifestyle
+  monorepo, no sign app). Draft+Sign integration is blocked until Han
+  exposes a REST surface (ideally mirroring julyvalue's /developers
+  pattern: key-auth'd envelope create/status) or shares the repo.
 - P3: JULY Lend at pre-approval/renewal (renewal radar from stored
   mortgages), Draft+Sign at offer/listing, Insure at subject removal.
-- P4: Annual Home Report, JULY Move, Presale Explorer, JULY Black tier,
-  landlord/investor mode (JULY Investor — persona naming, NOT "Invest").
+- P4: Annual Home Report (**SHIPPED wave 4** — /hub/report: print-ready
+  year-in-review; value journey + equity tiles + accomplishments +
+  watch list + live market chips + year-ahead w/ renewal callout;
+  linked from dashboard sidebar + My Home; window.print() button,
+  @media print hides chrome), JULY Move, Presale Explorer, JULY Black
+  tier, landlord/investor mode (JULY Investor — persona naming, NOT
+  "Invest").
 
 ## 8. ECOSYSTEM MAP (for context in any product decision)
 
