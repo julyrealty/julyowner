@@ -302,6 +302,8 @@ export function HubProvider({ children, demo }: { children: React.ReactNode; dem
     async createLead(kind, message) {
       if (!state.demo && state.hub) {
         await sb().from("ho_leads").insert({ hub_id: state.hub.id, pro_id: (state.hub as Hub & { pro_id?: string }).pro_id ?? null, kind, message, name: `${state.profile?.first_name ?? ""} ${state.profile?.last_name ?? ""}`.trim(), email: state.profile?.email });
+        // Alert the sponsoring professional by email (fire-and-forget).
+        void sb().functions.invoke("ho-emails", { body: { action: "lead", hub_id: state.hub.id, kind, message } }).catch(() => {});
       }
       actions.logActivity(kind === "sell" ? "Clicked Sell My Home" : kind === "loan" ? "Clicked Get a Loan" : "Requested service", message);
     },

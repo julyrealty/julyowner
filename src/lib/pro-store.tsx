@@ -132,8 +132,12 @@ export function ProProvider({ children, demo }: { children: React.ReactNode; dem
       if (!s.demo && c) {
         const user = (await sb().auth.getUser()).data.user;
         const { data } = await sb().from("ho_invites").insert({ pro_id: user?.id, contact_id: id, email: c.email, invite_type: "hub" }).select().single();
-        const token = (data as { token?: string })?.token ?? "";
-        return `${window.location.origin}/claim?invite=${token}`;
+        const inv = data as { id?: string; token?: string } | null;
+        if (inv?.id) {
+          // Fire the branded invite email through the ho-emails edge function.
+          void sb().functions.invoke("ho-emails", { body: { action: "invite", invite_id: inv.id } }).catch(() => {});
+        }
+        return `${window.location.origin}/claim?invite=${inv?.token ?? ""}`;
       }
       return `${window.location.origin}/claim`;
     },
