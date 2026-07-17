@@ -1,0 +1,225 @@
+"use client";
+import { useMemo, useState } from "react";
+import { useHub } from "@/lib/store";
+import { cad, compact, equityUses, purchasingPower, tappableEquity } from "@/lib/calc";
+import { IMPROVEMENTS, Improvement, ARTICLES } from "@/lib/demo";
+import { Card, SectionLabel, Modal, Pill, Progress, Field } from "@/components/ui";
+import { CompareBars, RangeSlider } from "@/components/charts";
+import { Hammer, Ruler, LineChart as LC, Wallet, Car, Home as HomeIc, Sun, CreditCard, Heart } from "lucide-react";
+
+const ICONS: Record<string, React.ComponentType<{ size?: number; className?: string }>> = {
+  hammer: Hammer, ruler: Ruler, chart: LC, wallet: Wallet, car: Car, home: HomeIc, sun: Sun, card: CreditCard,
+};
+
+export default function BuildWealth() {
+  const { hub, mortgages, updateHub, logActivity } = useHub();
+  const [proj, setProj] = useState<Improvement | null>(null);
+  const [editValue, setEditValue] = useState(false);
+  const [fav, setFav] = useState<string[]>([]);
+
+  const value = hub?.home_value ?? 0;
+  const balance = mortgages.reduce((s, m) => s + (m.balance || 0), 0);
+  const equity = Math.max(0, value - balance);
+  const equityPct = value ? equity / value : 0;
+  const uses = useMemo(() => equityUses(value, balance), [value, balance]);
+  const power = useMemo(() => purchasingPower(value, balance), [value, balance]);
+  const gain = value - (hub?.purchase_price ?? value);
+  const gainPct = hub?.purchase_price ? (gain / hub.purchase_price) * 100 : 0;
+  const potential = Math.round(value * 1.11);
+
+  return (
+    <div>
+      <section className="bg-gradient-to-r from-teal-deep to-teal text-white">
+        <div className="container-x py-8 sm:py-10">
+          <h1 className="text-3xl font-extrabold tracking-tight sm:text-4xl">Build Wealth</h1>
+          <p className="mt-1 text-sm text-white/70">Your home is an investment. Here&apos;s the statement.</p>
+        </div>
+      </section>
+
+      <div className="container-x grid gap-6 py-8 lg:grid-cols-[1fr_340px]">
+        <div className="space-y-8">
+          {/* VALUE ESTIMATE */}
+          <section>
+            <SectionLabel right={<button className="link text-xs" onClick={() => setEditValue(true)}>Update</button>}>Home value estimate</SectionLabel>
+            <Card className="p-6 text-center">
+              <p className="tabular text-4xl font-extrabold text-teal sm:text-5xl">{cad(value)}</p>
+              <RangeSlider low={hub?.value_low ?? value * 0.92} high={hub?.value_high ?? value * 1.08} value={value} />
+              <div className="mt-1 flex justify-between text-xs text-gray-400">
+                <span>Low {compact(hub?.value_low ?? value * 0.92)}</span>
+                <span>High {compact(hub?.value_high ?? value * 1.08)}</span>
+              </div>
+              <p className="mt-3 text-sm">
+                <span className="font-bold text-emerald-600">▲ {gainPct.toFixed(0)}% ({cad(gain)})</span>
+                <span className="text-gray-500"> since purchase</span>
+              </p>
+              <p className="mt-1 text-[11px] text-gray-400">Estimate refreshed monthly from nearby sales · not an appraisal</p>
+            </Card>
+          </section>
+
+          {/* USE AS INVESTMENT */}
+          <section>
+            <SectionLabel>Use your home as an investment</SectionLabel>
+            <div className="grid gap-3 sm:grid-cols-2">
+              <Card className="flex items-center gap-4 p-5">
+                <div className="min-w-0 flex-1">
+                  <p className="font-bold">Improve your home</p>
+                  <div className="mt-2 space-y-1 text-sm">
+                    <p className="text-gray-400">Current <span className="tabular float-right font-bold text-ink">{cad(value)}</span></p>
+                    <p className="text-gray-400">Potential <span className="tabular float-right font-bold text-emerald-600">{cad(potential)}</span></p>
+                  </div>
+                  <a href="#projects" className="link mt-2 inline-block text-sm">See improvements</a>
+                </div>
+                <CompareBars current={value} potential={potential} height={84} />
+              </Card>
+              <Card className="p-5">
+                <p className="font-bold">Budget accurately</p>
+                <p className="mt-1 text-sm text-gray-500">Every project below uses localized Vancouver cost ranges — no wishful thinking.</p>
+                <a href="#projects" className="link mt-3 inline-block text-sm">Get project estimates</a>
+              </Card>
+            </div>
+          </section>
+
+          {/* PURCHASING POWER */}
+          <section>
+            <SectionLabel>Purchasing power</SectionLabel>
+            <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+              {power.map((p) => (
+                <Card key={p.key} className="p-4 text-center">
+                  <p className="tabular text-xl font-extrabold text-teal-deep">{compact(p.amount)}</p>
+                  <p className="mt-1 text-[13px] font-bold leading-tight">{p.label}</p>
+                  <p className="mt-1 text-[11px] text-gray-400">{p.note}</p>
+                </Card>
+              ))}
+            </div>
+          </section>
+
+          {/* PROJECTS */}
+          <section id="projects">
+            <SectionLabel>Improvement projects — cost vs. value added</SectionLabel>
+            <div className="grid gap-3 sm:grid-cols-2">
+              {IMPROVEMENTS.map((im) => (
+                <Card key={im.slug} className="cursor-pointer p-5 transition hover:border-teal" >
+                  <button className="w-full text-left" onClick={() => { setProj(im); logActivity("Viewed a project", im.title); }}>
+                    <div className="flex items-start justify-between gap-2">
+                      <p className="font-bold leading-snug">{im.title}</p>
+                      {im.recommended && <Pill tone="green">Recommended</Pill>}
+                    </div>
+                    <div className="mt-3 flex items-end justify-between">
+                      <div className="text-xs text-gray-400">
+                        Typical cost<br /><span className="tabular text-sm font-bold text-ink">{compact(im.costLow)}–{compact(im.costHigh)}</span>
+                      </div>
+                      <div className="text-right text-xs text-gray-400">
+                        Value added<br />
+                        <span className="tabular text-sm font-extrabold text-emerald-600">+{compact(im.valueAdd)} ({im.pctAdd.toFixed(1)}%)</span>
+                      </div>
+                    </div>
+                  </button>
+                </Card>
+              ))}
+            </div>
+          </section>
+
+          {/* EDUCATION */}
+          <section>
+            <SectionLabel>Featured guides</SectionLabel>
+            <div className="grid gap-3 sm:grid-cols-3">
+              {[ARTICLES[5], ARTICLES[3], ARTICLES[7]].map((a) => (
+                <Card key={a.slug} className="p-4">
+                  <p className="text-[11px] font-bold uppercase tracking-wide text-teal">{a.tag}</p>
+                  <p className="mt-1.5 text-[15px] font-bold leading-snug">{a.title}</p>
+                  <p className="mt-1.5 line-clamp-3 text-xs text-gray-500">{a.excerpt}</p>
+                </Card>
+              ))}
+            </div>
+          </section>
+        </div>
+
+        {/* RAIL */}
+        <aside className="space-y-6">
+          <section>
+            <SectionLabel>Current home equity</SectionLabel>
+            <Card className="p-5">
+              <div className="flex items-baseline justify-between">
+                <p className="tabular text-3xl font-extrabold">{cad(equity)}</p>
+                <span className="text-xs font-bold text-gray-400">{Math.round(equityPct * 100)}% of value</span>
+              </div>
+              <Progress value={equityPct * 100} className="mt-3" />
+              <p className="mt-3 text-xs text-gray-400">
+                Equity = home value − everything you owe. Lenders typically let you borrow to 80% of value.
+              </p>
+            </Card>
+          </section>
+          <section>
+            <SectionLabel>Tap home equity</SectionLabel>
+            <Card className="divide-y divide-line">
+              {uses.map((u) => {
+                const Icon = ICONS[u.icon] ?? Hammer;
+                const tone = u.tone === "bad" ? "text-coral" : u.tone === "warn" ? "text-amber-600" : "text-ink";
+                return (
+                  <div key={u.key} className="flex items-center gap-3 p-3.5">
+                    <Icon size={17} className="shrink-0 text-gray-400" />
+                    <span className="min-w-0 flex-1 text-sm font-semibold">{u.label}</span>
+                    <span className={`tabular text-sm font-extrabold ${tone}`}>{compact(u.amount)}</span>
+                  </div>
+                );
+              })}
+              <p className="p-3.5 text-[11px] leading-relaxed text-gray-400">
+                Colour is a rough guide to return on investment — <span className="font-bold text-ink">black</span> tends to build wealth,{" "}
+                <span className="font-bold text-amber-600">amber</span> depends, <span className="font-bold text-coral">red</span> rarely pays you back.
+                Up to {compact(tappableEquity(value, balance))} available at 80% LTV.
+              </p>
+            </Card>
+          </section>
+        </aside>
+      </div>
+
+      {/* PROJECT DETAIL */}
+      <Modal open={!!proj} onClose={() => setProj(null)} title={proj?.title} wide>
+        {proj && (
+          <div>
+            <div className="flex items-center gap-2">
+              <Pill tone="teal">{proj.tag}</Pill>
+              {proj.recommended && <Pill tone="green">Recommended for your home</Pill>}
+            </div>
+            <div className="mt-4 rounded-xl bg-cream p-4">
+              <div className="flex items-center justify-between">
+                <p className="text-sm font-semibold text-gray-600">Potential value added</p>
+                <p className="tabular text-2xl font-extrabold text-emerald-600">+{cad(proj.valueAdd)} <span className="text-sm">({proj.pctAdd.toFixed(1)}%)</span></p>
+              </div>
+              <div className="mt-1 flex items-center justify-between">
+                <p className="text-sm font-semibold text-gray-600">Typical cost in Vancouver</p>
+                <p className="tabular text-sm font-bold">{cad(proj.costLow)} – {cad(proj.costHigh)}</p>
+              </div>
+            </div>
+            <p className="mt-4 text-sm leading-relaxed text-gray-600">{proj.blurb}</p>
+            <div className="mt-6 grid grid-cols-2 gap-2">
+              <button className="btn btn-ghost btn-md" onClick={() => { setFav((f) => f.includes(proj.slug) ? f : [...f, proj.slug]); logActivity("Favorited a project", proj.title); }}>
+                <Heart size={15} className={fav.includes(proj.slug) ? "fill-coral text-coral" : ""} /> {fav.includes(proj.slug) ? "Saved" : "Save project"}
+              </button>
+              <button className="btn btn-primary btn-md" onClick={() => { logActivity("Requested contractor intro", proj.title); setProj(null); }}>
+                Talk to a contractor
+              </button>
+            </div>
+            <p className="mt-3 text-center text-[11px] text-gray-400">Cost and value figures are planning estimates, refreshed quarterly.</p>
+          </div>
+        )}
+      </Modal>
+
+      {/* EDIT VALUE */}
+      <Modal open={editValue} onClose={() => setEditValue(false)} title="Update home value">
+        <ValueForm current={value} onSave={async (v) => { await updateHub({ home_value: v, value_low: Math.round(v * 0.92), value_high: Math.round(v * 1.08) }); setEditValue(false); }} />
+      </Modal>
+    </div>
+  );
+}
+
+function ValueForm({ current, onSave }: { current: number; onSave: (v: number) => Promise<void> }) {
+  const [v, setV] = useState(current);
+  return (
+    <div className="space-y-4">
+      <p className="text-sm text-gray-600">Know something the estimate doesn&apos;t — a renovation, an appraisal? Set your own number; we&apos;ll keep tracking from there.</p>
+      <Field label="Your estimate"><input type="number" className="input tabular" value={v} onChange={(e) => setV(Number(e.target.value))} /></Field>
+      <button className="btn btn-primary btn-lg w-full" onClick={() => onSave(v)}>Save</button>
+    </div>
+  );
+}
