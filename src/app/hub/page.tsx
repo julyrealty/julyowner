@@ -62,6 +62,9 @@ export default function HubDashboard() {
               </Link>
               <button className="btn btn-ghost btn-sm" onClick={() => { setLeadDone(false); setLeadModal("loan"); }}>Get a loan</button>
             </div>
+            <Link href={`/hub/buying${q}`} className="link mt-3 block text-center text-xs">
+              Shopping for your next home? → Buying HQ
+            </Link>
           </Card>
         </div>
       </section>

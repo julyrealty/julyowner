@@ -4,7 +4,7 @@ import Link from "next/link";
 import { usePathname, useSearchParams } from "next/navigation";
 import {
   Home, LayoutDashboard, Wrench, PiggyBank, TrendingUp, House,
-  LogOut, RotateCcw, Sparkles, Tag,
+  LogOut, RotateCcw, Sparkles, Tag, Search,
 } from "lucide-react";
 import { HubProvider, useHub, resetDemo } from "@/lib/store";
 import { Spinner, Modal } from "@/components/ui";
@@ -54,11 +54,15 @@ function Shell({ children }: { children: React.ReactNode }) {
   const active = (href: string) =>
     href === "/hub" ? path === "/hub" : path.startsWith(href);
 
-  // Seller mode gets its own tab, right after the dashboard.
+  // Seller mode gets its own tab, right after the dashboard. An active buying plan
+  // gets one too — but never both at once: Selling wins, so mobile stays at six columns.
   const selling = hub?.journey === "selling" || hub?.journey === "sold";
+  const buying = !!hub?.buying_started_at || hub?.journey === "buying";
   const nav = selling
     ? [NAV[0], { href: "/hub/sell", label: "Selling", icon: Tag }, ...NAV.slice(1)]
-    : NAV;
+    : buying
+      ? [NAV[0], { href: "/hub/buying", label: "Buying", icon: Search }, ...NAV.slice(1)]
+      : NAV;
 
   // White-label: the hub inherits the sponsoring professional's brand colour.
   const brand = (pro as { brand_color?: string | null })?.brand_color || "#0e7c7b";

@@ -5,7 +5,7 @@
 import React, { createContext, useCallback, useContext, useEffect, useMemo, useState } from "react";
 import { sb } from "./supabase";
 import {
-  DEMO_HUB, DEMO_MORTGAGE, DEMO_PRO, DEMO_ADVISOR, DEMO_WHATS_NEXT, SELLER_TASKS,
+  DEMO_HUB, DEMO_MORTGAGE, DEMO_PRO, DEMO_ADVISOR, DEMO_WHATS_NEXT, SELLER_TASKS, DEMO_BUYER,
   findCatalogItem, areaOf, uid,
 } from "./demo";
 
@@ -32,6 +32,7 @@ export type Hub = {
   journey?: "buying" | "owning" | "selling" | "sold";
   selling_started_at?: string | null; target_list_month?: string | null;
   listing_status?: "preparing" | "listed" | "offers" | "sold" | null;
+  buying_started_at?: string | null;
 };
 export type Profile = {
   id: string; role: "homeowner" | "professional"; first_name: string | null; last_name: string | null;
@@ -42,6 +43,20 @@ export type Profile = {
 export type Advisor = {
   id: string; first_name: string | null; last_name: string | null; advisor_type: string;
   email?: string | null; phone?: string | null; is_default?: boolean; company?: string | null;
+};
+
+/* JULY Search sync — shapes mirror the `ho-buyer` edge function snapshot contract. */
+export type BuyerWatched = {
+  ref: string; kind: string; label: string | null;
+  last_price: number | null; last_status: string | null; created_at: string;
+};
+export type BuyerSearch = {
+  name: string | null; criteria: unknown; alert_new: boolean | null;
+  alert_sold: boolean | null; created_at: string;
+};
+export type BuyerTour = {
+  address: string | null; city: string | null; list_price: number | null;
+  status: string | null; preferred_times: string | null; created_at: string;
 };
 
 type HubState = {
@@ -56,6 +71,7 @@ type HubState = {
   docs: Doc[];
   pro: typeof DEMO_PRO | Profile | null;
   advisor: Advisor | null;
+  buyer: { loaded: boolean; linked: boolean; watched: BuyerWatched[]; searches: BuyerSearch[]; tours: BuyerTour[] };
 };
 
 type HubActions = {
@@ -72,6 +88,9 @@ type HubActions = {
   refreshValue: () => Promise<void>;
   startSelling: (targetListMonth?: string) => Promise<void>;
   setListingStatus: (status: NonNullable<Hub["listing_status"]>) => Promise<void>;
+  startBuying: () => Promise<void>;
+  stopBuying: () => Promise<void>;
+  loadBuyer: () => Promise<void>;
   createLead: (kind: "sell" | "loan" | "service" | "general" | "valuation", message: string) => Promise<void>;
   logActivity: (action: string, detail?: string) => void;
   signOut: () => Promise<void>;
@@ -134,6 +153,7 @@ export function HubProvider({ children, demo }: { children: React.ReactNode; dem
   const [state, setState] = useState<HubState>({
     loading: true, demo, session: false, profile: null, hub: null,
     mortgages: [], inventory: [], tasks: [], docs: [], pro: null, advisor: null,
+    buyer: { loaded: false, linked: false, watched: [], searches: [], tours: [] },
   });
 
   /* ---------- load ---------- */
@@ -189,6 +209,7 @@ export function HubProvider({ children, demo }: { children: React.ReactNode; dem
         loading: false, demo: false, session: true,
         profile: profile as Profile, hub, mortgages, inventory, tasks, docs,
         pro: pro as Profile | null, advisor: advisor as Advisor | null,
+        buyer: { loaded: false, linked: false, watched: [], searches: [], tours: [] },
       });
     })();
     return () => { alive = false; };
@@ -234,6 +255,21 @@ export function HubProvider({ children, demo }: { children: React.ReactNode; dem
     });
   }, []);
 
+  // Functional variant — safe when several writes land before a re-render
+  // (e.g. adding multiple scanned items in one loop).
+  const persistDemoFn = useCallback((update: (s: HubState) => Partial<HubState>) => {
+    setState((s) => {
+      const merged = { ...s, ...update(s) };
+      try {
+        localStorage.setItem(LS_KEY, JSON.stringify({
+          hub: merged.hub, mortgages: merged.mortgages, inventory: merged.inventory,
+          tasks: merged.tasks, docs: merged.docs,
+        }));
+      } catch {}
+      return merged;
+    });
+  }, []);
+
   const actions: HubActions = useMemo(() => ({
     async addInventory(itemType, opts) {
       const cat = findCatalogItem(itemType);
@@ -250,7 +286,7 @@ export function HubProvider({ children, demo }: { children: React.ReactNode; dem
           due_date: dueFrom(tt.frequency), minutes: tt.minutes, difficulty: "Basic", status: "pending" as const,
         }));
       if (state.demo) {
-        persistDemo({ inventory: [...state.inventory, item], tasks: [...state.tasks, ...newTasks] });
+        persistDemoFn((s) => ({ inventory: [...s.inventory, item], tasks: [...s.tasks, ...newTasks] }));
       } else if (state.hub) {
         const supa = sb();
         const { data: ins } = await supa.from("ho_inventory_items").insert({ ...item, id: undefined, hub_id: state.hub.id }).select().single();
@@ -390,6 +426,46 @@ export function HubProvider({ children, demo }: { children: React.ReactNode; dem
       setState((s) => ({ ...s, hub: s.hub ? { ...s.hub, ...patch } : s.hub }));
       actions.logActivity("Updated listing status", status);
     },
+    async startBuying() {
+      if (!state.hub || state.hub.buying_started_at) return;
+      const patch: Partial<Hub> = { buying_started_at: new Date().toISOString() };
+      if (state.demo) { persistDemo({ hub: { ...state.hub, ...patch } }); return; }
+      await sb().from("ho_hubs").update(patch).eq("id", state.hub.id);
+      setState((s) => ({ ...s, hub: s.hub ? { ...s.hub, ...patch } : s.hub }));
+      actions.logActivity("Started a buying plan");
+      // High-intent signal for the sponsoring professional (fire-and-forget).
+      void sb().functions.invoke("ho-emails", { body: { action: "buying_started", hub_id: state.hub.id } }).catch(() => {});
+    },
+    async stopBuying() {
+      if (!state.hub) return;
+      const patch: Partial<Hub> = { buying_started_at: null };
+      if (state.demo) { persistDemo({ hub: { ...state.hub, ...patch } }); return; }
+      await sb().from("ho_hubs").update(patch).eq("id", state.hub.id);
+      setState((s) => ({ ...s, hub: s.hub ? { ...s.hub, ...patch } : s.hub }));
+      actions.logActivity("Paused their buying plan");
+    },
+    async loadBuyer() {
+      if (state.demo) {
+        setState((s) => ({
+          ...s,
+          buyer: { loaded: true, linked: true, watched: [...DEMO_BUYER.watched], searches: [...DEMO_BUYER.searches], tours: [...DEMO_BUYER.tours] },
+        }));
+        return;
+      }
+      try {
+        if (!state.hub) throw new Error("no hub");
+        const { data, error } = await sb().functions.invoke("ho-buyer", { body: { action: "snapshot", hub_id: state.hub.id } });
+        if (error || !data) throw error ?? new Error("empty snapshot");
+        const d = data as { linked?: boolean; watched?: BuyerWatched[]; searches?: BuyerSearch[]; tours?: BuyerTour[] };
+        setState((s) => ({
+          ...s,
+          buyer: { loaded: true, linked: !!d.linked, watched: d.watched ?? [], searches: d.searches ?? [], tours: d.tours ?? [] },
+        }));
+      } catch {
+        // Errors and timeouts read as "no JULY Search account yet" — the page shows its connect state.
+        setState((s) => ({ ...s, buyer: { loaded: true, linked: false, watched: [], searches: [], tours: [] } }));
+      }
+    },
     async createLead(kind, message) {
       if (!state.demo && state.hub) {
         await sb().from("ho_leads").insert({ hub_id: state.hub.id, pro_id: (state.hub as Hub & { pro_id?: string }).pro_id ?? null, kind, message, name: `${state.profile?.first_name ?? ""} ${state.profile?.last_name ?? ""}`.trim(), email: state.profile?.email });
@@ -404,7 +480,7 @@ export function HubProvider({ children, demo }: { children: React.ReactNode; dem
       }
     },
     async signOut() { await sb().auth.signOut(); window.location.href = "/"; },
-  }), [state, persistDemo]);
+  }), [state, persistDemo, persistDemoFn]);
 
   return <Ctx.Provider value={{ ...state, ...actions }}>{children}</Ctx.Provider>;
 }

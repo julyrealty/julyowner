@@ -267,6 +267,22 @@ export const DEMO_ACTIVITIES = [
   { id: "a6", hub: "2718 W 21st Ave", member: "Dana Whitfield", action: "Clicked Sell My Home", detail: "Lead created", when: "2026-07-10T16:03:00Z" },
 ];
 
+/** Buying HQ demo — what a linked JULY Search account syncs into the hub. */
+export const DEMO_BUYER = {
+  watched: [
+    { ref: "jsw-4821", kind: "listing", label: "302-2159 W 6th Ave · 2 bed condo", last_price: 1048000, last_status: "Active", created_at: "2026-07-12T19:40:00Z" },
+    { ref: "jsw-4783", kind: "listing", label: "18-3990 Quebec St · 3 bed townhome", last_price: 1268000, last_status: "Active", created_at: "2026-07-08T02:15:00Z" },
+    { ref: "jsw-4866", kind: "listing", label: "506-1688 Cypress St · 1 bed + den condo", last_price: 754900, last_status: "Active", created_at: "2026-07-15T21:05:00Z" },
+  ],
+  searches: [
+    { name: "Kits condos under $1.1M", criteria: {}, alert_new: true, alert_sold: true, created_at: "2026-06-28T18:30:00Z" },
+    { name: "Main St townhomes · 3 bed", criteria: {}, alert_new: true, alert_sold: false, created_at: "2026-07-05T16:10:00Z" },
+  ],
+  tours: [
+    { address: "302-2159 W 6th Ave", city: "Vancouver", list_price: 1048000, status: "requested", preferred_times: "Sat afternoon", created_at: "2026-07-15T22:20:00Z" },
+  ],
+};
+
 /** Selling Roadmap templates — merged with items generated from the home's own inventory. */
 export const SELLER_TASKS: { title: string; minutes: number }[] = [
   { title: "Walk-through & pricing strategy with your advisor", minutes: 60 },

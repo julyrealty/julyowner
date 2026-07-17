@@ -180,7 +180,43 @@ OPEN (build roadmap — agreed sequence):
   refusal. Coverage is Burnaby-first today — Vancouver addresses return
   matched:false and hubs keep purchase-anchored values; widen as JULY
   Value's property DB grows.
-- P1 still open: sold comps from july-platform DB into pricing lab.
+- **BUYER PLAYBOOK ("Buying HQ") + JULY SEARCH BRIDGE: BUILT 2026-07-17.**
+  `/hub/buying` (activation w/ purchasing-power hook → watched homes,
+  saved searches, tour requests, buying team, pause). `buying_started_at`
+  on ho_hubs is the switch (journey='buying' reserved for hubs claimed as
+  buyers); nav shows at most ONE extra tab (Selling wins over Buying).
+  Store: buyer slice + loadBuyer/startBuying/stopBuying; ho-emails v5
+  'buying_started' pro-signal email. Edge fn **ho-buyer** (deployed):
+  member-checked, looks up ONLY the caller's own email via july-platform
+  RPC `hub_buyer_snapshot(p_email,p_secret)` — secret in ho_config
+  (platform_url/platform_anon_key/platform_bridge_secret). **PENDING
+  HAN**: run scratchpad `july-platform-bridge.sql` in july-platform's SQL
+  editor (classifier blocked cross-project DDL) — until then ho-buyer
+  returns linked:false and the UI shows the connect pitch (verified).
+  Identity join is BY EMAIL (july-platform consumer ids ≠ julybase ids).
+- **LIVE MARKET STRIP: SHIPPED.** src/lib/platform.ts reads
+  july-platform market_snapshots anon-read REST (publishable key,
+  public by design) → "Your market right now" in the pricing lab with
+  real active counts / median ask / $psf per property class; null =
+  strip hidden, static fallback untouched.
+- **BUYERAIPRO SCAN-FROM-HUB: SHIPPED 2026-07-17.** Documents page: "AI
+  scan" on PDF rows → modal (Inspection/Strata/Title/PDS/Contract) →
+  edge fn **ho-scan** (deployed; member-checked; 10-min signed URL from
+  ho-docs → BuyerAiPro POST /api/v1/scans {scannerId, fileUrls} with
+  x-api-key; poll GET /scans/{id}) → summary + key findings; INSPECTION
+  scans extract systems (13-term map → exact INVENTORY_CATALOG types +
+  brand/age heuristics) → preselected checklist → addInventory() per item
+  (maintenance tasks auto-seed). Internal key (label "JULYOwner hub",
+  user_id null = bypasses billing) + base URL in ho_config
+  (buyeraipro_api_key/buyeraipro_api_url). Demo mode = canned "Sample
+  result" (Lennox furnace 12y + Bradford White WH 9y), add-to-inventory
+  runs for real. Bugfixes shipped with it: ScanFlow aliveRef re-arms on
+  StrictMode remount; store addInventory demo path uses persistDemoFn
+  (functional update) so rapid multi-adds don't lose writes.
+  supabase/functions/* source is versioned in-repo and EXCLUDED from
+  tsconfig (Deno).
+- P1 still open: sold comps into pricing lab (sold_listings table is
+  EMPTY in july-platform — needs Han's sold-data import first).
 - P1 also: JULY Search API into buyer playbook (saved/viewed/liked, tours),
   JULY Value gap badges, BuyerAiPro scan-from-hub (mint internal key via its
   scripts/make-api-key.mjs), inspection-scan → inventory graduation bridge.

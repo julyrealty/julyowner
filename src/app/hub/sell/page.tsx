@@ -1,5 +1,5 @@
 "use client";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import {
@@ -8,6 +8,7 @@ import {
 } from "lucide-react";
 import { useHub } from "@/lib/store";
 import { cad, compact, netProceeds, domEstimate, fmtDate } from "@/lib/calc";
+import { fetchCityMarket, type CityMarket } from "@/lib/platform";
 import { MARKET, IMPROVEMENTS, SELLER_TASKS } from "@/lib/demo";
 import { Card, SectionLabel, Avatar, Progress } from "@/components/ui";
 
@@ -43,6 +44,16 @@ export default function SellPage() {
 
   const value = hub?.home_value ?? 0;
   const selling = hub?.journey === "selling" || hub?.journey === "sold";
+
+  /* live market pulse — latest snapshot rows straight from JULY Search's DB.
+     null (fetch failed / no data) simply hides the strip; nothing else changes. */
+  const [market, setMarket] = useState<CityMarket[] | null>(null);
+  const marketCity = hub?.city || "Vancouver";
+  useEffect(() => {
+    let cancelled = false;
+    fetchCityMarket(marketCity).then((rows) => { if (!cancelled) setMarket(rows); });
+    return () => { cancelled = true; };
+  }, [marketCity]);
 
   /* activation */
   const [targetMonth, setTargetMonth] = useState("");
@@ -181,6 +192,12 @@ export default function SellPage() {
   }
 
   /* ---------------------------------- selling state ---------------------------------- */
+  const marketChips = (market ?? [])
+    .slice(0, 3)
+    .map((r) => ({ label: classLabel(r.property_class), bits: marketBits(r) }))
+    .filter((c) => c.bits.length > 0);
+  const marketAsOf = market?.[0]?.snapshot_date ?? null;
+
   return (
     <div className="container-x space-y-8 py-8">
       {/* header + tracker */}
@@ -314,6 +331,26 @@ export default function SellPage() {
                   })}
                 </ul>
               </div>
+
+              {/* LIVE MARKET STRIP — real snapshot data; hidden entirely when unavailable */}
+              {marketChips.length > 0 && (
+                <div className="mt-5 border-t border-line pt-4">
+                  <div className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-0.5">
+                    <p className="text-xs font-bold uppercase tracking-wide text-gray-400">
+                      Your market right now — {marketCity}
+                    </p>
+                    {marketAsOf && <p className="text-[11px] text-gray-400">as of {fmtDate(marketAsOf)}</p>}
+                  </div>
+                  <div className="mt-2 flex flex-wrap gap-2">
+                    {marketChips.map((c, i) => (
+                      <span key={`${c.label}-${i}`} className="tabular rounded-xl bg-[#f4f6f5] px-3 py-2 text-[12px] leading-relaxed text-gray-600">
+                        <span className="font-extrabold text-ink">{c.label}</span> — {c.bits.join(" · ")}
+                      </span>
+                    ))}
+                  </div>
+                  <p className="mt-2 text-[11px] text-gray-400">Live from JULY Search (search.july.ca)</p>
+                </div>
+              )}
             </Card>
           </section>
 
@@ -530,4 +567,20 @@ function Num({ label, v, set, step }: { label: string; v: number; set: (n: numbe
       <input className="input mt-1" type="number" step={step} value={v} onChange={(e) => set(Number(e.target.value))} />
     </div>
   );
+}
+
+/* live market strip helpers — property_class values are opaque labels from JULY Search */
+function classLabel(cls: string | null): string {
+  const s = cls?.trim();
+  if (!s) return "Overall";
+  return s.charAt(0).toUpperCase() + s.slice(1);
+}
+
+function marketBits(r: CityMarket): string[] {
+  const bits: string[] = [];
+  if (r.active_count != null) bits.push(`${r.active_count} active`);
+  if (r.median_list_price != null) bits.push(`median ask ${compact(r.median_list_price)}`);
+  if (r.avg_ppsf != null) bits.push(`$${Math.round(r.avg_ppsf)}/sqft`);
+  if (r.median_dom != null) bits.push(`${Math.round(r.median_dom)} days`);
+  return bits;
 }
