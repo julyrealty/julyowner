@@ -214,9 +214,12 @@ export default function HubDashboard() {
                   </div>
                 </div>
               )}
-              <button className="btn btn-primary btn-sm mt-4 w-full" onClick={() => { setLeadDone(false); setLeadModal("sell"); }}>
-                Let&apos;s connect
-              </button>
+              <div className="mt-4 grid grid-cols-2 gap-2">
+                <button className="btn btn-primary btn-sm" onClick={() => { setLeadDone(false); setLeadModal("sell"); }}>
+                  Let&apos;s connect
+                </button>
+                <Link href={`/hub/messages${q}`} className="btn btn-ghost btn-sm">Messages</Link>
+              </div>
             </Card>
           </section>
 

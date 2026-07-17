@@ -236,7 +236,17 @@ OPEN (build roadmap — agreed sequence):
   JULY Value gap badges, BuyerAiPro scan-from-hub (mint internal key via its
   scripts/make-api-key.mjs), inspection-scan → inventory graduation bridge.
 - P2: unified CRM event timeline (SHIPPED wave 3); JULY Answer (ONE
-  receptionist, modes).
+  receptionist, modes) — its substrate SHIPPED wave 6: **in-hub
+  messaging.** Table ho_messages (hub_id/sender_id/sender_role
+  homeowner|professional|system/sender_name/body≤2000/read_at; RLS:
+  participants read, senders insert as themselves via ho_is_member /
+  ho_is_pro_of; zero new advisor lints). Homeowner /hub/messages thread
+  (bubbles, Enter-to-send, demo thread persists via localStorage —
+  messages joined the persistDemo payload); dashboard advisor card gained
+  a Messages button; pro/hubs timeline panel embeds the thread + inline
+  reply (inserts as professional). JULY Answer later = 'system' role
+  messages into the same table. NOTE: auth_leaked_password_protection is
+  OFF (Auth dashboard toggle — Han-side nicety).
 - **WAVE 5 SHIPPED 2026-07-17:** weekly pro digest — ho-emails v7 action
   `weekly_pro` (per professional: new leads, selling/buying activations,
   renewals inside 90 days, hub-activity count; silent on quiet weeks;

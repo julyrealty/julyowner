@@ -295,4 +295,23 @@ export const SELLER_TASKS: { title: string; minutes: number }[] = [
   { title: "Professional photos & floor plan", minutes: 90 },
 ];
 
+/** Seeded advisor thread for the demo hub's Messages page. */
+export const DEMO_MESSAGES = [
+  {
+    id: "m1", sender_role: "professional" as const, sender_name: "Jordan Lee",
+    body: "Hi Dana — your hub is all set up. I loaded your purchase details and current estimate; poke around and tell me if anything looks off.",
+    created_at: "2026-07-10T17:05:00Z",
+  },
+  {
+    id: "m2", sender_role: "homeowner" as const, sender_name: "Dana Whitfield",
+    body: "This is great. Quick one — is the water heater note serious? It says risk 7.0.",
+    created_at: "2026-07-10T18:22:00Z",
+  },
+  {
+    id: "m3", sender_role: "professional" as const, sender_name: "Jordan Lee",
+    body: "Worth planning for, not panicking over. Rheem tanks usually go 8–12 years; yours is 7. Budget ~$2,400 installed — I can send two plumbers I trust when you're ready.",
+    created_at: "2026-07-10T18:40:00Z",
+  },
+];
+
 export const uid = () => Math.random().toString(36).slice(2, 10);

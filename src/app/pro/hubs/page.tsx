@@ -1,10 +1,12 @@
 "use client";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { usePro, type ProActivity, type ProHubRow } from "@/lib/pro-store";
 import { Card, Avatar } from "@/components/ui";
 import { relTime } from "@/lib/calc";
-import { KeyRound, ExternalLink, ChevronDown } from "lucide-react";
+import { sb } from "@/lib/supabase";
+import { DEMO_MESSAGES } from "@/lib/demo";
+import { KeyRound, ExternalLink, ChevronDown, Send } from "lucide-react";
 
 const LISTING_LABEL: Record<string, string> = {
   preparing: "Preparing to list",
@@ -68,7 +70,81 @@ function buildEvents(h: ProHubRow, activities: ProActivity[]): HubEvent[] {
   return out.sort((a, b) => b.when.localeCompare(a.when));
 }
 
-function TimelinePanel({ hub, events, id }: { hub: ProHubRow; events: HubEvent[]; id: string }) {
+type ThreadMsg = { id: string; sender_role: string; sender_name: string | null; body: string; created_at: string };
+
+/** Direct thread with the homeowner — loads on expand; replies insert as the signed-in pro. */
+function HubMessages({ hubId, demo, proName }: { hubId: string; demo: boolean; proName: string }) {
+  const [msgs, setMsgs] = useState<ThreadMsg[] | null>(null);
+  const [draft, setDraft] = useState("");
+  const [sending, setSending] = useState(false);
+
+  useEffect(() => {
+    let alive = true;
+    if (demo) {
+      setMsgs(hubId === "h1" ? DEMO_MESSAGES.map((m) => ({ ...m })) : []);
+      return;
+    }
+    (async () => {
+      const { data } = await sb().from("ho_messages")
+        .select("id,sender_role,sender_name,body,created_at")
+        .eq("hub_id", hubId).order("created_at").limit(50);
+      if (alive) setMsgs((data as ThreadMsg[]) ?? []);
+    })();
+    return () => { alive = false; };
+  }, [hubId, demo]);
+
+  async function reply() {
+    const text = draft.trim();
+    if (!text || sending) return;
+    setSending(true);
+    try {
+      const msg: ThreadMsg = { id: `local-${Date.now()}`, sender_role: "professional", sender_name: proName, body: text.slice(0, 2000), created_at: new Date().toISOString() };
+      if (!demo) {
+        const { data: { user } } = await sb().auth.getUser();
+        const { data } = await sb().from("ho_messages")
+          .insert({ hub_id: hubId, sender_id: user?.id, sender_role: "professional", sender_name: proName, body: msg.body })
+          .select("id,sender_role,sender_name,body,created_at").single();
+        setMsgs((m) => [...(m ?? []), (data as ThreadMsg) || msg]);
+      } else {
+        setMsgs((m) => [...(m ?? []), msg]);
+      }
+      setDraft("");
+    } finally { setSending(false); }
+  }
+
+  return (
+    <div className="mt-3 border-t border-line pt-3">
+      <p className="section-label mb-2">Messages</p>
+      {msgs === null ? (
+        <p className="py-1 text-xs text-gray-400">Loading…</p>
+      ) : msgs.length === 0 ? (
+        <p className="py-1 text-xs text-gray-400">No messages yet — say hello and it lands in their hub.</p>
+      ) : (
+        <ul className="max-h-48 space-y-1.5 overflow-y-auto pr-1">
+          {msgs.slice(-8).map((m) => (
+            <li key={m.id} className="flex min-w-0 items-baseline gap-2 text-[13px]">
+              <span className={`shrink-0 font-bold ${m.sender_role === "professional" ? "text-teal-deep" : "text-navy"}`}>
+                {m.sender_role === "professional" ? "You" : (m.sender_name?.split(" ")[0] ?? "Owner")}
+              </span>
+              <span className="min-w-0 flex-1 truncate text-gray-600">{m.body}</span>
+              <span className="shrink-0 text-[10px] font-semibold text-gray-400">{relTime(m.created_at)}</span>
+            </li>
+          ))}
+        </ul>
+      )}
+      <div className="mt-2 flex items-center gap-2">
+        <input className="input h-9 flex-1 text-sm" placeholder="Reply — appears in their hub instantly"
+          value={draft} onChange={(e) => setDraft(e.target.value)}
+          onKeyDown={(e) => { if (e.key === "Enter") reply(); }} />
+        <button className="btn btn-primary btn-sm shrink-0" disabled={!draft.trim() || sending} onClick={reply} aria-label="Send reply">
+          <Send size={14} />
+        </button>
+      </div>
+    </div>
+  );
+}
+
+function TimelinePanel({ hub, events, id, demo, proName }: { hub: ProHubRow; events: HubEvent[]; id: string; demo: boolean; proName: string }) {
   const mtg = mortgageCount(hub);
   return (
     <div id={id} className="border-t border-line bg-gray-50/60 px-4 py-3.5">
@@ -103,12 +179,14 @@ function TimelinePanel({ hub, events, id }: { hub: ProHubRow; events: HubEvent[]
           ))}
         </ul>
       )}
+      <HubMessages hubId={hub.id} demo={demo} proName={proName} />
     </div>
   );
 }
 
 export default function ProHubs() {
-  const { hubs, activities, demo } = usePro();
+  const { hubs, activities, demo, profile } = usePro();
+  const proName = `${(profile as { first_name?: string | null })?.first_name ?? "Your"} ${(profile as { last_name?: string | null })?.last_name ?? "advisor"}`.trim();
   const q = demo ? "?demo=1" : "";
   const [openId, setOpenId] = useState<string | null>(null);
 
@@ -185,7 +263,7 @@ export default function ProHubs() {
                   <ChevronDown size={16} className={`transition-transform ${open ? "rotate-180" : ""}`} />
                 </button>
               </div>
-              {open && <TimelinePanel hub={h} events={events} id={panelId} />}
+              {open && <TimelinePanel hub={h} events={events} id={panelId} demo={demo} proName={proName} />}
             </Card>
           );
         })}

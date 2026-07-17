@@ -5,7 +5,7 @@
 import React, { createContext, useCallback, useContext, useEffect, useMemo, useState } from "react";
 import { sb } from "./supabase";
 import {
-  DEMO_HUB, DEMO_MORTGAGE, DEMO_PRO, DEMO_ADVISOR, DEMO_WHATS_NEXT, SELLER_TASKS, DEMO_BUYER,
+  DEMO_HUB, DEMO_MORTGAGE, DEMO_PRO, DEMO_ADVISOR, DEMO_WHATS_NEXT, SELLER_TASKS, DEMO_BUYER, DEMO_MESSAGES,
   findCatalogItem, areaOf, uid,
 } from "./demo";
 
@@ -24,6 +24,10 @@ export type Task = {
   due_date: string | null; minutes: number; difficulty: string; status: "pending" | "done" | "dismissed";
 };
 export type Doc = { id: string; folder: string; name: string; size_bytes: number; tags: string[]; created_at: string };
+export type Message = {
+  id: string; sender_role: "homeowner" | "professional" | "system";
+  sender_name: string | null; body: string; created_at: string;
+};
 export type Hub = {
   id: string; address1: string; unit?: string | null; city: string | null; region: string | null; postal: string | null;
   full_address: string | null; purchase_price: number | null; purchase_date: string | null;
@@ -73,6 +77,7 @@ type HubState = {
   pro: typeof DEMO_PRO | Profile | null;
   advisor: Advisor | null;
   buyer: { loaded: boolean; linked: boolean; watched: BuyerWatched[]; searches: BuyerSearch[]; tours: BuyerTour[] };
+  messages: Message[];
 };
 
 type HubActions = {
@@ -92,6 +97,7 @@ type HubActions = {
   startBuying: () => Promise<void>;
   stopBuying: () => Promise<void>;
   loadBuyer: () => Promise<void>;
+  sendMessage: (body: string) => Promise<void>;
   createLead: (kind: "sell" | "loan" | "service" | "general" | "valuation", message: string) => Promise<void>;
   logActivity: (action: string, detail?: string) => void;
   signOut: () => Promise<void>;
@@ -119,7 +125,7 @@ function riskFor(itemType: string, age: number | null): number {
   return Math.max(0, Math.min(10, Math.round((age / mid) * 10 * 10) / 10));
 }
 
-function demoSeed(): Pick<HubState, "hub" | "mortgages" | "inventory" | "tasks" | "docs"> {
+function demoSeed(): Pick<HubState, "hub" | "mortgages" | "inventory" | "tasks" | "docs" | "messages"> {
   const furnace: InventoryItem = {
     id: "inv-furnace", area: "Systems", item_type: "Heating", brand: "Carrier",
     age_years: 9, typical_life: "15–25 years", failure_risk: 4.5,
@@ -147,6 +153,7 @@ function demoSeed(): Pick<HubState, "hub" | "mortgages" | "inventory" | "tasks" 
       { id: "d2", folder: "Warranty", name: "heat_pump_warranty.pdf", size_bytes: 221004, tags: [], created_at: "2026-05-02" },
       { id: "d3", folder: "Property Files", name: "sellers_disclosure_2016.pdf", size_bytes: 1204551, tags: ["purchase"], created_at: "2026-04-18" },
     ],
+    messages: DEMO_MESSAGES.map((m) => ({ ...m })),
   };
 }
 
@@ -155,6 +162,7 @@ export function HubProvider({ children, demo }: { children: React.ReactNode; dem
     loading: true, demo, session: false, profile: null, hub: null,
     mortgages: [], inventory: [], tasks: [], docs: [], pro: null, advisor: null,
     buyer: { loaded: false, linked: false, watched: [], searches: [], tours: [] },
+    messages: [],
   });
 
   /* ---------- load ---------- */
@@ -184,20 +192,22 @@ export function HubProvider({ children, demo }: { children: React.ReactNode; dem
         supa.from("ho_hub_members").select("hub_id").or(`user_id.eq.${uidv},email.eq.${session.user.email}`),
       ]);
       const hubId = memberships?.[0]?.hub_id;
-      let hub = null, mortgages: Mortgage[] = [], inventory: InventoryItem[] = [], tasks: Task[] = [], docs: Doc[] = [], pro = null, advisor = null;
+      let hub = null, mortgages: Mortgage[] = [], inventory: InventoryItem[] = [], tasks: Task[] = [], docs: Doc[] = [], pro = null, advisor = null, messages: Message[] = [];
       if (hubId) {
-        const [h, m, inv, tk, dc] = await Promise.all([
+        const [h, m, inv, tk, dc, mg] = await Promise.all([
           supa.from("ho_hubs").select("*").eq("id", hubId).maybeSingle(),
           supa.from("ho_mortgages").select("*").eq("hub_id", hubId).order("is_primary", { ascending: false }),
           supa.from("ho_inventory_items").select("*").eq("hub_id", hubId),
           supa.from("ho_tasks").select("*").eq("hub_id", hubId).order("due_date"),
           supa.from("ho_documents").select("*").eq("hub_id", hubId).order("created_at", { ascending: false }),
+          supa.from("ho_messages").select("id,sender_role,sender_name,body,created_at").eq("hub_id", hubId).order("created_at").limit(200),
         ]);
         hub = h.data;
         mortgages = (m.data as Mortgage[]) || [];
         inventory = (inv.data as InventoryItem[]) || [];
         tasks = (tk.data as Task[]) || [];
         docs = (dc.data as Doc[]) || [];
+        messages = (mg.data as Message[]) || [];
         if (hub?.pro_id) {
           const { data: p } = await supa.from("ho_profiles").select("*").eq("id", hub.pro_id).maybeSingle();
           pro = p;
@@ -208,7 +218,7 @@ export function HubProvider({ children, demo }: { children: React.ReactNode; dem
       if (!alive) return;
       setState({
         loading: false, demo: false, session: true,
-        profile: profile as Profile, hub, mortgages, inventory, tasks, docs,
+        profile: profile as Profile, hub, mortgages, inventory, tasks, docs, messages,
         pro: pro as Profile | null, advisor: advisor as Advisor | null,
         buyer: { loaded: false, linked: false, watched: [], searches: [], tours: [] },
       });
@@ -249,7 +259,7 @@ export function HubProvider({ children, demo }: { children: React.ReactNode; dem
       try {
         localStorage.setItem(LS_KEY, JSON.stringify({
           hub: merged.hub, mortgages: merged.mortgages, inventory: merged.inventory,
-          tasks: merged.tasks, docs: merged.docs,
+          tasks: merged.tasks, docs: merged.docs, messages: merged.messages,
         }));
       } catch {}
       return merged;
@@ -264,7 +274,7 @@ export function HubProvider({ children, demo }: { children: React.ReactNode; dem
       try {
         localStorage.setItem(LS_KEY, JSON.stringify({
           hub: merged.hub, mortgages: merged.mortgages, inventory: merged.inventory,
-          tasks: merged.tasks, docs: merged.docs,
+          tasks: merged.tasks, docs: merged.docs, messages: merged.messages,
         }));
       } catch {}
       return merged;
@@ -466,6 +476,21 @@ export function HubProvider({ children, demo }: { children: React.ReactNode; dem
         // Errors and timeouts read as "no JULY Search account yet" — the page shows its connect state.
         setState((s) => ({ ...s, buyer: { loaded: true, linked: false, watched: [], searches: [], tours: [] } }));
       }
+    },
+    async sendMessage(body) {
+      const text = body.trim();
+      if (!text || !state.hub) return;
+      const name = `${state.profile?.first_name ?? ""} ${state.profile?.last_name ?? ""}`.trim() || null;
+      const msg: Message = { id: uid(), sender_role: "homeowner", sender_name: name, body: text.slice(0, 2000), created_at: new Date().toISOString() };
+      if (state.demo) {
+        persistDemoFn((s) => ({ messages: [...s.messages, msg] }));
+        return;
+      }
+      const { data } = await sb().from("ho_messages")
+        .insert({ hub_id: state.hub.id, sender_id: state.profile?.id, sender_role: "homeowner", sender_name: name, body: msg.body })
+        .select("id,sender_role,sender_name,body,created_at").single();
+      setState((s) => ({ ...s, messages: [...s.messages, (data as Message) || msg] }));
+      actions.logActivity("Sent a message", msg.body.slice(0, 120));
     },
     async createLead(kind, message) {
       if (!state.demo && state.hub) {
