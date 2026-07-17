@@ -8,7 +8,7 @@ import { Field } from "@/components/ui";
 import { AddressAutocomplete } from "@/components/address-autocomplete";
 
 type Payload = {
-  address1: string; city: string; region: string; postal: string;
+  unit: string; address1: string; city: string; region: string; postal: string;
   purchase_price?: string; purchase_date?: string;
 };
 
@@ -18,10 +18,27 @@ function ClaimInner() {
   const inviteToken = params.get("invite");
   const proRef = params.get("pro");
   const [step, setStep] = useState<"address" | "account" | "check-email">("address");
-  const [addr, setAddr] = useState<Payload>({ address1: "", city: "Vancouver", region: "BC", postal: "" });
+  const [addr, setAddr] = useState<Payload>({ unit: "", address1: "", city: "Vancouver", region: "BC", postal: "" });
   const [form, setForm] = useState({ first: "", last: "", email: "", password: "" });
   const [err, setErr] = useState("");
   const [busy, setBusy] = useState(false);
+  const [dupWarn, setDupWarn] = useState(false);
+
+  async function continueFromAddress() {
+    setBusy(true);
+    try {
+      const { data: claimed } = await sb().rpc("ho_address_claimed", {
+        p_unit: addr.unit || null,
+        p_address1: addr.address1,
+        p_city: addr.city,
+        p_region: addr.region,
+        p_postal: addr.postal || null,
+      });
+      if (claimed && !dupWarn) { setDupWarn(true); setBusy(false); return; }
+    } catch { /* lookup unavailable — proceed */ }
+    setBusy(false);
+    setStep("account");
+  }
 
   async function submit() {
     setBusy(true); setErr("");
@@ -70,20 +87,26 @@ function ClaimInner() {
               <h1 className="text-2xl font-extrabold tracking-tight">Where&apos;s home?</h1>
               <p className="mt-1.5 text-sm text-gray-500">Your hub is built around your property — start with the address.</p>
               <div className="mt-6 space-y-4">
-                <Field label="Street address">
-                  <AddressAutocomplete
-                    value={addr.address1}
-                    autoFocus
-                    onChange={(text) => setAddr({ ...addr, address1: text })}
-                    onSelect={(p) => setAddr({ ...addr, address1: p.address1, city: p.city, region: p.region, postal: p.postal || addr.postal })}
-                  />
-                </Field>
+                <div className="grid grid-cols-[96px_1fr] gap-3">
+                  <Field label="Unit" hint="If any">
+                    <input className="input" placeholder="404" value={addr.unit}
+                      onChange={(e) => { setAddr({ ...addr, unit: e.target.value }); setDupWarn(false); }} />
+                  </Field>
+                  <Field label="Street address">
+                    <AddressAutocomplete
+                      value={addr.address1}
+                      autoFocus
+                      onChange={(text) => { setAddr({ ...addr, address1: text }); setDupWarn(false); }}
+                      onSelect={(p) => { setAddr({ ...addr, address1: p.address1, city: p.city, region: p.region, postal: p.postal || addr.postal }); setDupWarn(false); }}
+                    />
+                  </Field>
+                </div>
                 <div className="grid grid-cols-2 gap-3">
                   <Field label="City">
-                    <input className="input" value={addr.city} onChange={(e) => setAddr({ ...addr, city: e.target.value })} />
+                    <input className="input" value={addr.city} onChange={(e) => { setAddr({ ...addr, city: e.target.value }); setDupWarn(false); }} />
                   </Field>
                   <Field label="Postal code">
-                    <input className="input" placeholder="V6L 1K3" value={addr.postal} onChange={(e) => setAddr({ ...addr, postal: e.target.value })} />
+                    <input className="input" placeholder="V6L 1K3" value={addr.postal} onChange={(e) => { setAddr({ ...addr, postal: e.target.value }); setDupWarn(false); }} />
                   </Field>
                 </div>
                 <div className="grid grid-cols-2 gap-3">
@@ -96,12 +119,20 @@ function ClaimInner() {
                       onChange={(e) => setAddr({ ...addr, purchase_price: e.target.value })} />
                   </Field>
                 </div>
+                {dupWarn && (
+                  <div className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-[13px] leading-relaxed text-amber-800">
+                    <b>This home already has a hub</b> — someone registered this address before you
+                    (often a family member or a previous occupant). You can continue: your claim will be
+                    flagged for a quick ownership review, and you can submit proof from inside your hub.
+                    In a multi-unit building? Double-check the unit number above.
+                  </div>
+                )}
                 <button
-                  className="btn btn-primary btn-lg w-full"
-                  disabled={!addr.address1.trim() || !addr.city.trim()}
-                  onClick={() => setStep("account")}
+                  className={`btn btn-lg w-full ${dupWarn ? "btn-dark" : "btn-primary"}`}
+                  disabled={!addr.address1.trim() || !addr.city.trim() || busy}
+                  onClick={continueFromAddress}
                 >
-                  Continue <ArrowRight size={18} />
+                  {busy ? "Checking…" : dupWarn ? "Continue anyway" : "Continue"} <ArrowRight size={18} />
                 </button>
                 <p className="text-center text-xs text-gray-400">
                   Renting or just curious? <Link className="link" href="/hub?demo=1">Explore the demo hub</Link> instead.

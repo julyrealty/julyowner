@@ -24,9 +24,10 @@ export type Task = {
 };
 export type Doc = { id: string; folder: string; name: string; size_bytes: number; tags: string[]; created_at: string };
 export type Hub = {
-  id: string; address1: string; city: string | null; region: string | null; postal: string | null;
+  id: string; address1: string; unit?: string | null; city: string | null; region: string | null; postal: string | null;
   full_address: string | null; purchase_price: number | null; purchase_date: string | null;
   home_value: number | null; value_low: number | null; value_high: number | null; value_updated: string | null;
+  verification_status?: "unverified" | "flagged" | "verified"; dup_of?: string | null;
 };
 export type Profile = {
   id: string; role: "homeowner" | "professional"; first_name: string | null; last_name: string | null;

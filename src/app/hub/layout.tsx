@@ -7,7 +7,8 @@ import {
   LogOut, RotateCcw, Sparkles,
 } from "lucide-react";
 import { HubProvider, useHub, resetDemo } from "@/lib/store";
-import { Spinner } from "@/components/ui";
+import { Spinner, Modal } from "@/components/ui";
+import { sb } from "@/lib/supabase";
 
 const NAV = [
   { href: "/hub", label: "Dashboard", icon: LayoutDashboard },
@@ -26,10 +27,23 @@ function shade(hex: string, f: number): string {
 }
 
 function Shell({ children }: { children: React.ReactNode }) {
-  const { loading, demo, session, profile, pro, signOut } = useHub();
+  const { loading, demo, session, profile, pro, hub, logActivity } = useHub();
+  const { signOut } = useHub();
   const path = usePathname();
   const [q, setQ] = useState("");
+  const [proofOpen, setProofOpen] = useState(false);
+  const [proofMsg, setProofMsg] = useState("");
+  const [proofSent, setProofSent] = useState(false);
   useEffect(() => { setQ(demo ? "?demo=1" : ""); }, [demo]);
+
+  async function submitProof() {
+    if (!hub) return;
+    try {
+      await sb().functions.invoke("ho-emails", { body: { action: "ownership_proof", hub_id: hub.id, message: proofMsg } });
+    } catch { /* logged server-side */ }
+    logActivity("Submitted ownership proof");
+    setProofSent(true);
+  }
 
   if (loading) return <div className="flex min-h-dvh items-center justify-center"><Spinner /></div>;
   if (!demo && !session) {
@@ -57,6 +71,15 @@ function Shell({ children }: { children: React.ReactNode }) {
           <Link href="/claim" className="shrink-0 rounded-full bg-white px-3 py-0.5 text-[12px] font-bold text-navy hover:opacity-90">
             Claim your real home
           </Link>
+        </div>
+      )}
+      {!demo && hub?.verification_status === "flagged" && (
+        <div className="flex flex-wrap items-center justify-center gap-2 bg-amber-500 px-4 py-2 text-center text-[13px] font-semibold text-white">
+          <span>Ownership review pending — this address was already registered by someone else.</span>
+          <button onClick={() => { setProofSent(false); setProofOpen(true); }}
+            className="rounded-full bg-white px-3 py-0.5 text-[12px] font-bold text-amber-600 hover:opacity-90">
+            Verify it&apos;s yours
+          </button>
         </div>
       )}
       <header className="sticky top-0 z-40 border-b border-line bg-white">
@@ -89,6 +112,34 @@ function Shell({ children }: { children: React.ReactNode }) {
       </header>
 
       <div className="flex-1 pb-24 md:pb-10">{children}</div>
+
+      {/* Ownership proof modal */}
+      <Modal open={proofOpen} onClose={() => setProofOpen(false)} title="Verify your ownership">
+        {proofSent ? (
+          <div className="py-4 text-center">
+            <p className="text-lg font-bold">Sent ✓</p>
+            <p className="mx-auto mt-1 max-w-xs text-sm text-gray-500">
+              Our team received your request and will reply by email — usually within one business day.
+              A recent property tax notice or title document is the fastest way to confirm.
+            </p>
+            <button className="btn btn-primary btn-md mt-5" onClick={() => setProofOpen(false)}>Done</button>
+          </div>
+        ) : (
+          <div className="space-y-4">
+            <p className="text-sm leading-relaxed text-gray-600">
+              This address was registered by someone else before you — that can happen when a family member,
+              previous occupant, or tenant set up a hub. Tell us in a sentence that you&apos;re the owner and
+              we&apos;ll follow up by email to confirm (a property tax notice or title works best). Your hub
+              keeps working as usual in the meantime.
+            </p>
+            <textarea className="input min-h-24" placeholder="e.g. I purchased this home in 2019 and can provide my tax notice."
+              value={proofMsg} onChange={(e) => setProofMsg(e.target.value)} />
+            <button className="btn btn-primary btn-lg w-full" disabled={!proofMsg.trim()} onClick={submitProof}>
+              Send verification request
+            </button>
+          </div>
+        )}
+      </Modal>
 
       {/* Mobile bottom nav */}
       <nav className="fixed inset-x-0 bottom-0 z-40 border-t border-line bg-white/95 backdrop-blur md:hidden" style={{ paddingBottom: "env(safe-area-inset-bottom)" }}>

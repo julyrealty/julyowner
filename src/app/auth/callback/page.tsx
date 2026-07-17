@@ -33,7 +33,7 @@ export default function AuthCallback() {
 
       if (!memberships || memberships.length === 0) {
         setMsg("Building your hub…");
-        let pending: { address1?: string; city?: string; region?: string; postal?: string; purchase_price?: string; purchase_date?: string; invite?: string | null; pro?: string | null } = {};
+        let pending: { unit?: string; address1?: string; city?: string; region?: string; postal?: string; purchase_price?: string; purchase_date?: string; invite?: string | null; pro?: string | null } = {};
         try { pending = JSON.parse(localStorage.getItem("julyowner-pending-claim") || "{}"); } catch {}
         const price = pending.purchase_price ? Number(String(pending.purchase_price).replace(/[^0-9.]/g, "")) || null : null;
         const year = pending.purchase_date ? Number(String(pending.purchase_date).slice(0, 4)) || null : null;
@@ -46,6 +46,7 @@ export default function AuthCallback() {
           p_year: year,
           p_invite_token: pending.invite || null,
           p_pro: pending.pro || null,
+          p_unit: pending.unit || null,
         });
         if (!error) localStorage.removeItem("julyowner-pending-claim");
       }
