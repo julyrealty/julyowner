@@ -5,6 +5,7 @@ import { useSearchParams } from "next/navigation";
 import { ArrowRight, Home, MailCheck } from "lucide-react";
 import { sb } from "@/lib/supabase";
 import { Field } from "@/components/ui";
+import { AddressAutocomplete } from "@/components/address-autocomplete";
 
 type Payload = {
   address1: string; city: string; region: string; postal: string;
@@ -70,8 +71,12 @@ function ClaimInner() {
               <p className="mt-1.5 text-sm text-gray-500">Your hub is built around your property — start with the address.</p>
               <div className="mt-6 space-y-4">
                 <Field label="Street address">
-                  <input className="input" placeholder="2718 W 21st Ave" value={addr.address1}
-                    onChange={(e) => setAddr({ ...addr, address1: e.target.value })} autoFocus />
+                  <AddressAutocomplete
+                    value={addr.address1}
+                    autoFocus
+                    onChange={(text) => setAddr({ ...addr, address1: text })}
+                    onSelect={(p) => setAddr({ ...addr, address1: p.address1, city: p.city, region: p.region, postal: p.postal || addr.postal })}
+                  />
                 </Field>
                 <div className="grid grid-cols-2 gap-3">
                   <Field label="City">
