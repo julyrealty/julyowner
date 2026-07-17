@@ -35,7 +35,7 @@ export default function ProContacts() {
 
       <div className="relative mt-5">
         <Search size={16} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-400" />
-        <input className="input pl-10" placeholder="Search by name or email…" value={qtext} onChange={(e) => setQtext(e.target.value)} />
+        <input className="input input-lead" placeholder="Search by name or email…" value={qtext} onChange={(e) => setQtext(e.target.value)} />
       </div>
 
       <div className="mt-4 space-y-2">

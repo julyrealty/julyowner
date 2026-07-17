@@ -35,7 +35,7 @@ export default function InventoryPage() {
         <div className="mt-5 flex flex-col gap-3 sm:flex-row sm:items-center">
           <div className="relative flex-1">
             <Search size={16} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-400" />
-            <input className="input pl-10" placeholder="Search items…" value={qtext} onChange={(e) => setQtext(e.target.value)} />
+            <input className="input input-lead" placeholder="Search items…" value={qtext} onChange={(e) => setQtext(e.target.value)} />
           </div>
           <div className="flex gap-1.5">
             {(["All", "Added", "Missing"] as const).map((f) => (

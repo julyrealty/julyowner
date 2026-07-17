@@ -34,7 +34,7 @@ export default function ProProviders() {
       <div className="mt-5 flex flex-col gap-3 sm:flex-row">
         <div className="relative flex-1">
           <Search size={16} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-400" />
-          <input className="input pl-10" placeholder="Search providers…" value={qtext} onChange={(e) => setQtext(e.target.value)} />
+          <input className="input input-lead" placeholder="Search providers…" value={qtext} onChange={(e) => setQtext(e.target.value)} />
         </div>
         <select className="input sm:w-56" value={cat ?? ""} onChange={(e) => setCat(e.target.value || null)}>
           <option value="">All categories</option>

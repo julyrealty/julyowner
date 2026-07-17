@@ -76,6 +76,8 @@ body {
   transition: border-color .15s, box-shadow .15s;
 }
 .input:focus { border-color: var(--teal); box-shadow: 0 0 0 3px var(--teal-soft); }
+/* Inputs with a leading icon — declared after .input so the padding wins. */
+.input-lead { padding-left: 2.5rem; }
 
 .link { font-weight: 600; color: var(--teal); }
 .link:hover { text-decoration: underline; text-underline-offset: 4px; }

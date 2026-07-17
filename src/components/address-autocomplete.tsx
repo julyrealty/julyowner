@@ -114,7 +114,7 @@ export function AddressAutocomplete({
       <div className="relative">
         <MapPin size={16} className="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-400" />
         <input
-          className="input pl-10"
+          className="input input-lead"
           role="combobox"
           aria-expanded={open}
           aria-autocomplete="list"
