@@ -237,6 +237,16 @@ OPEN (build roadmap — agreed sequence):
   scripts/make-api-key.mjs), inspection-scan → inventory graduation bridge.
 - P2: unified CRM event timeline (SHIPPED wave 3); JULY Answer (ONE
   receptionist, modes).
+- **WAVE 5 SHIPPED 2026-07-17:** weekly pro digest — ho-emails v7 action
+  `weekly_pro` (per professional: new leads, selling/buying activations,
+  renewals inside 90 days, hub-activity count; silent on quiet weeks;
+  logs kind 'weekly'); pg_cron `ho-weekly-pro-email` Mondays 16:00 UTC
+  (tested live: 200 {"sent":0} with no eligible pros). /professionals
+  page refreshed: journey section ("One hub. Every chapter." —
+  own/sell/buy/repeat), 8-tile shipped-capabilities grid (dark panel),
+  updated hero + pillar + Professional-plan copy naming the real
+  signals. NOTE: subagent spawning hit a usage-credit limit this wave —
+  built inline instead.
 - **JULY SIGN DISCOVERY (2026-07-17): NO API today.** julysign.com is a
   consumer app (login/signup/pricing; /developers, /docs, /api/v1/* all
   404; repo not on this machine — JULYGroupSites is the lifestyle
