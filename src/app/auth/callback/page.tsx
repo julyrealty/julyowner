@@ -4,7 +4,6 @@
 import { useEffect, useState } from "react";
 import { sb } from "@/lib/supabase";
 import { Spinner } from "@/components/ui";
-import { DEMO_HUB } from "@/lib/demo";
 
 export default function AuthCallback() {
   const [msg, setMsg] = useState("Signing you in…");
@@ -34,34 +33,21 @@ export default function AuthCallback() {
 
       if (!memberships || memberships.length === 0) {
         setMsg("Building your hub…");
-        let pending: { address1?: string; city?: string; region?: string; postal?: string; purchase_price?: string; purchase_date?: string } = {};
+        let pending: { address1?: string; city?: string; region?: string; postal?: string; purchase_price?: string; purchase_date?: string; invite?: string | null; pro?: string | null } = {};
         try { pending = JSON.parse(localStorage.getItem("julyowner-pending-claim") || "{}"); } catch {}
-        const address1 = pending.address1 || "My home";
         const price = pending.purchase_price ? Number(String(pending.purchase_price).replace(/[^0-9.]/g, "")) || null : null;
-        const year = pending.purchase_date ? String(pending.purchase_date).slice(0, 4) : null;
-        // Starter estimate until a real valuation source is connected:
-        const est = price ? Math.round(price * 1.35) : DEMO_HUB.home_value;
-        const { data: hub, error } = await supa.from("ho_hubs").insert({
-          address1,
-          city: pending.city || "Vancouver",
-          region: pending.region || "BC",
-          postal: pending.postal || null,
-          full_address: [address1, pending.city || "Vancouver", pending.region || "BC", pending.postal].filter(Boolean).join(", "),
-          purchase_price: price,
-          purchase_date: year ? `${year}-06-15` : null,
-          home_value: est,
-          value_low: Math.round(est * 0.92),
-          value_high: Math.round(est * 1.08),
-        }).select().single();
-        if (!error && hub) {
-          await supa.from("ho_hub_members").insert({
-            hub_id: hub.id, user_id: user.id, email: user.email,
-            first_name: user.user_metadata?.first_name ?? null,
-            last_name: user.user_metadata?.last_name ?? null,
-            status: "joined", joined_at: new Date().toISOString(),
-          });
-          localStorage.removeItem("julyowner-pending-claim");
-        }
+        const year = pending.purchase_date ? Number(String(pending.purchase_date).slice(0, 4)) || null : null;
+        const { error } = await supa.rpc("ho_claim_hub", {
+          p_address1: pending.address1 || "My home",
+          p_city: pending.city || null,
+          p_region: pending.region || null,
+          p_postal: pending.postal || null,
+          p_price: price,
+          p_year: year,
+          p_invite_token: pending.invite || null,
+          p_pro: pending.pro || null,
+        });
+        if (!error) localStorage.removeItem("julyowner-pending-claim");
       }
       window.location.replace("/hub");
     })();

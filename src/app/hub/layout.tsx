@@ -17,8 +17,16 @@ const NAV = [
   { href: "/hub/home", label: "My Home", icon: House },
 ];
 
+function shade(hex: string, f: number): string {
+  const m = /^#?([0-9a-f]{6})$/i.exec(hex.trim());
+  if (!m) return hex;
+  const n = parseInt(m[1], 16);
+  const ch = (x: number) => Math.max(0, Math.min(255, Math.round(x * f)));
+  return `#${[ch((n >> 16) & 255), ch((n >> 8) & 255), ch(n & 255)].map((x) => x.toString(16).padStart(2, "0")).join("")}`;
+}
+
 function Shell({ children }: { children: React.ReactNode }) {
-  const { loading, demo, session, profile, signOut } = useHub();
+  const { loading, demo, session, profile, pro, signOut } = useHub();
   const path = usePathname();
   const [q, setQ] = useState("");
   useEffect(() => { setQ(demo ? "?demo=1" : ""); }, [demo]);
@@ -32,8 +40,16 @@ function Shell({ children }: { children: React.ReactNode }) {
   const active = (href: string) =>
     href === "/hub" ? path === "/hub" : path.startsWith(href);
 
+  // White-label: the hub inherits the sponsoring professional's brand colour.
+  const brand = (pro as { brand_color?: string | null })?.brand_color || "#0e7c7b";
+  const brandVars = {
+    "--teal": brand,
+    "--teal-deep": shade(brand, 0.78),
+    "--teal-soft": `color-mix(in srgb, ${brand} 12%, white)`,
+  } as React.CSSProperties;
+
   return (
-    <div className="flex min-h-dvh flex-col bg-[#f7f8f7]">
+    <div className="flex min-h-dvh flex-col bg-[#f7f8f7]" style={brandVars}>
       {demo && (
         <div className="flex items-center justify-center gap-3 bg-navy px-4 py-2 text-center text-[13px] font-semibold text-white">
           <Sparkles size={14} className="shrink-0 text-gold" />
@@ -64,9 +80,10 @@ function Shell({ children }: { children: React.ReactNode }) {
             ) : (
               <button onClick={signOut} className="btn btn-ghost btn-sm" title="Sign out"><LogOut size={14} /> <span className="hidden sm:inline">Sign out</span></button>
             )}
-            <span className="ml-1 hidden h-9 w-9 items-center justify-center rounded-full bg-teal text-sm font-bold text-white sm:flex">
+            <Link href={`/hub/profile${q}`} title="Profile & settings"
+              className="ml-1 flex h-9 w-9 items-center justify-center rounded-full bg-teal text-sm font-bold text-white transition hover:opacity-85">
               {(profile?.first_name?.[0] || "D")}{(profile?.last_name?.[0] || "W")}
-            </span>
+            </Link>
           </div>
         </div>
       </header>

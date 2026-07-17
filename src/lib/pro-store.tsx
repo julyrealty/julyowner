@@ -15,6 +15,7 @@ export type ProAdvisor = {
   email?: string | null; phone?: string | null; is_default: boolean; company?: string | null;
 };
 export type ProHubRow = { id: string; address: string; contact: string; updated: string };
+export type ProActivity = { id: string; hub: string; member: string; action: string; detail: string | null; when: string };
 export type ProState = {
   loading: boolean; demo: boolean; session: boolean;
   profile: typeof DEMO_PRO | null;
@@ -22,21 +23,23 @@ export type ProState = {
   advisors: ProAdvisor[];
   hubs: ProHubRow[];
   recommended: string[]; // provider ids
-  activities: typeof DEMO_ACTIVITIES;
+  activities: ProActivity[];
+  shareLink: string;
   addContact: (c: { first_name: string; last_name: string; email: string }) => Promise<void>;
   inviteContact: (id: string) => Promise<string>; // returns invite link
   addAdvisor: (a: Omit<ProAdvisor, "id" | "is_default"> & { is_default?: boolean }) => Promise<void>;
   setDefaultAdvisor: (id: string) => Promise<void>;
   toggleRecommend: (providerId: string) => Promise<void>;
+  updateProfile: (p: Record<string, string | null>) => Promise<void>;
 };
 
 const Ctx = createContext<ProState | null>(null);
 const LS = "julyowner-pro-demo-v1";
 
 export function ProProvider({ children, demo }: { children: React.ReactNode; demo: boolean }) {
-  const [s, setS] = useState<Omit<ProState, "addContact" | "inviteContact" | "addAdvisor" | "setDefaultAdvisor" | "toggleRecommend">>({
+  const [s, setS] = useState<Omit<ProState, "addContact" | "inviteContact" | "addAdvisor" | "setDefaultAdvisor" | "toggleRecommend" | "updateProfile">>({
     loading: true, demo, session: false, profile: null,
-    contacts: [], advisors: [], hubs: [], recommended: [], activities: [],
+    contacts: [], advisors: [], hubs: [], recommended: [], activities: [], shareLink: "",
   });
 
   useEffect(() => {
@@ -55,7 +58,8 @@ export function ProProvider({ children, demo }: { children: React.ReactNode; dem
             { id: "h2", address: "1444 W 8th Ave #302, Vancouver, BC", contact: "Sam Okafor", updated: "2 days ago" },
           ],
           recommended: saved.recommended ?? PROVIDERS.filter((p) => p.recommended).map((p) => p.id),
-          activities: DEMO_ACTIVITIES,
+          activities: DEMO_ACTIVITIES as unknown as ProActivity[],
+          shareLink: `${window.location.origin}/claim`,
         });
         return;
       }
@@ -63,12 +67,14 @@ export function ProProvider({ children, demo }: { children: React.ReactNode; dem
       const { data: { session } } = await supa.auth.getSession();
       if (!session) { if (alive) setS((x) => ({ ...x, loading: false })); return; }
       const uidv = session.user.id;
-      const [{ data: profile }, { data: contacts }, { data: advisors }, { data: hubs }, { data: recs }] = await Promise.all([
+      const [{ data: profile }, { data: contacts }, { data: advisors }, { data: hubs }, { data: recs }, { data: acts }, { data: leads }] = await Promise.all([
         supa.from("ho_profiles").select("*").eq("id", uidv).maybeSingle(),
         supa.from("ho_contacts").select("*").eq("pro_id", uidv).order("created_at", { ascending: false }),
         supa.from("ho_advisors").select("*").eq("pro_id", uidv),
         supa.from("ho_hubs").select("id,full_address,address1,created_at,ho_hub_members(first_name,last_name)").eq("pro_id", uidv),
         supa.from("ho_recommendations").select("provider_id").eq("pro_id", uidv),
+        supa.from("ho_activities").select("id,action,detail,member_email,created_at,ho_hubs!inner(address1,pro_id)").eq("ho_hubs.pro_id", uidv).order("created_at", { ascending: false }).limit(25),
+        supa.from("ho_leads").select("*").eq("pro_id", uidv).order("created_at", { ascending: false }).limit(10),
       ]);
       if (!alive) return;
       setS({
@@ -85,7 +91,18 @@ export function ProProvider({ children, demo }: { children: React.ReactNode; dem
           return { id: String(hh.id), address: String(hh.full_address ?? hh.address1), contact: m ? `${m.first_name ?? ""} ${m.last_name ?? ""}`.trim() || "Invited" : "Unclaimed", updated: "recently" };
         }),
         recommended: ((recs as { provider_id: string }[]) || []).map((r) => r.provider_id),
-        activities: [],
+        activities: [
+          ...(((leads as unknown[]) || []).map((l) => {
+            const ll = l as Record<string, unknown>;
+            return { id: `lead-${ll.id}`, hub: "Lead", member: String(ll.name || ll.email || "Homeowner"), action: ll.kind === "sell" ? "Clicked Sell My Home" : ll.kind === "loan" ? "Clicked Get a Loan" : "Requested service", detail: (ll.message as string) ?? null, when: String(ll.created_at) };
+          })),
+          ...(((acts as unknown[]) || []).map((a) => {
+            const aa = a as Record<string, unknown>;
+            const hub = aa.ho_hubs as Record<string, unknown> | null;
+            return { id: String(aa.id), hub: String(hub?.address1 ?? ""), member: String(aa.member_email ?? "Member"), action: String(aa.action), detail: (aa.detail as string) ?? null, when: String(aa.created_at) };
+          })),
+        ].sort((x, y) => y.when.localeCompare(x.when)).slice(0, 25),
+        shareLink: `${window.location.origin}/claim?pro=${uidv}`,
       });
     })();
     return () => { alive = false; };
@@ -144,6 +161,13 @@ export function ProProvider({ children, demo }: { children: React.ReactNode; dem
         const user = (await sb().auth.getUser()).data.user;
         if (on) await sb().from("ho_recommendations").delete().eq("pro_id", user?.id).eq("provider_id", pid);
         else await sb().from("ho_recommendations").insert({ pro_id: user?.id, provider_id: pid });
+      }
+    },
+    async updateProfile(p) {
+      persist({ profile: s.profile ? ({ ...s.profile, ...p } as typeof s.profile) : s.profile });
+      if (!s.demo) {
+        const user = (await sb().auth.getUser()).data.user;
+        if (user) await sb().from("ho_profiles").update(p).eq("id", user.id);
       }
     },
   }), [s]);

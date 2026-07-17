@@ -3,7 +3,7 @@ import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { ChevronRight, Clock, Mail, Phone } from "lucide-react";
 import { useHub } from "@/lib/store";
-import { cad, fmtDate, valueSeries } from "@/lib/calc";
+import { cad, compact, fmtDate, valueSeries } from "@/lib/calc";
 import { MARKET, ARTICLES } from "@/lib/demo";
 import { Card, SectionLabel, Progress, Avatar, Modal } from "@/components/ui";
 import { Sparkline, CompareBars } from "@/components/charts";
@@ -112,7 +112,7 @@ export default function HubDashboard() {
                 {MARKET.recentSales.slice(0, 4).map((s) => (
                   <div key={s.address} className="flex items-center gap-3 py-2.5 text-sm">
                     <span className="w-[74px] shrink-0 rounded-md bg-red-50 px-2 py-1 text-center text-[12px] font-extrabold text-coral tabular">
-                      {cad(s.price / 1000, 0).replace("$", "$")}K
+                      {compact(s.price)}
                     </span>
                     <span className="min-w-0 flex-1 truncate font-medium">{s.address}</span>
                     <span className="shrink-0 text-xs text-gray-400">{fmtDate(s.date)}</span>

@@ -14,6 +14,8 @@ type Payload = {
 function ClaimInner() {
   const params = useSearchParams();
   const isPro = params.get("role") === "professional";
+  const inviteToken = params.get("invite");
+  const proRef = params.get("pro");
   const [step, setStep] = useState<"address" | "account" | "check-email">("address");
   const [addr, setAddr] = useState<Payload>({ address1: "", city: "Vancouver", region: "BC", postal: "" });
   const [form, setForm] = useState({ first: "", last: "", email: "", password: "" });
@@ -37,7 +39,7 @@ function ClaimInner() {
       });
       if (error) throw error;
       // Stash the claim so we can finish it after email confirmation / first session.
-      if (!isPro) localStorage.setItem("julyowner-pending-claim", JSON.stringify(addr));
+      if (!isPro) localStorage.setItem("julyowner-pending-claim", JSON.stringify({ ...addr, invite: inviteToken, pro: proRef }));
       if (data.session) {
         window.location.href = "/auth/callback";
         return;

@@ -2,7 +2,7 @@
 import React, { Suspense } from "react";
 import Link from "next/link";
 import { usePathname, useSearchParams } from "next/navigation";
-import { Home, LayoutDashboard, Users, House, BadgeCheck, Handshake, Radar, LogOut, Sparkles } from "lucide-react";
+import { Home, LayoutDashboard, Users, House, BadgeCheck, Handshake, Radar, LogOut, Sparkles, UserCircle2 } from "lucide-react";
 import { ProProvider, usePro } from "@/lib/pro-store";
 import { Spinner } from "@/components/ui";
 import { sb } from "@/lib/supabase";
@@ -14,6 +14,7 @@ const NAV = [
   { href: "/pro/providers", label: "Providers", icon: Handshake },
   { href: "/pro/advisors", label: "Advisors", icon: BadgeCheck },
   { href: "/pro/opportunities", label: "Signals", icon: Radar },
+  { href: "/pro/profile", label: "Profile", icon: UserCircle2 },
 ];
 
 function Shell({ children }: { children: React.ReactNode }) {
@@ -75,7 +76,7 @@ function Shell({ children }: { children: React.ReactNode }) {
 
       {/* Mobile bottom nav */}
       <nav className="fixed inset-x-0 bottom-0 z-40 border-t border-line bg-white/95 backdrop-blur md:hidden" style={{ paddingBottom: "env(safe-area-inset-bottom)" }}>
-        <div className="grid grid-cols-6">
+        <div className="grid grid-cols-7">
           {NAV.map((n) => (
             <Link key={n.href} href={`${n.href}${q}`}
               className={`flex flex-col items-center gap-0.5 py-2.5 text-[9.5px] font-bold ${active(n.href) ? "text-teal" : "text-gray-400"}`}>

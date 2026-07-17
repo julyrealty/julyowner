@@ -58,8 +58,9 @@ type HubActions = {
   removeInventory: (id: string) => Promise<void>;
   setTaskStatus: (id: string, status: Task["status"]) => Promise<void>;
   addTask: (t: { title: string; due_date?: string; minutes?: number; frequency?: string }) => Promise<void>;
-  addDoc: (d: { folder: string; name: string; size_bytes: number; tags?: string[] }) => Promise<void>;
+  addDoc: (d: { folder: string; name: string; size_bytes: number; tags?: string[] }, file?: File) => Promise<void>;
   removeDoc: (id: string) => Promise<void>;
+  docUrl: (id: string) => Promise<string | null>;
   updateMortgage: (m: Partial<Mortgage> & { id: string }) => Promise<void>;
   addMortgage: (m: Omit<Mortgage, "id" | "is_primary">) => Promise<void>;
   updateHub: (h: Partial<Hub>) => Promise<void>;
@@ -248,20 +249,33 @@ export function HubProvider({ children, demo }: { children: React.ReactNode; dem
         setState((s) => ({ ...s, tasks: [...s.tasks, (data as Task) || task] }));
       }
     },
-    async addDoc(d) {
+    async addDoc(d, file) {
       const doc: Doc = { id: uid(), folder: d.folder, name: d.name, size_bytes: d.size_bytes, tags: d.tags || [], created_at: new Date().toISOString() };
       if (state.demo) persistDemo({ docs: [doc, ...state.docs] });
       else if (state.hub) {
-        const { data } = await sb().from("ho_documents").insert({ ...doc, id: undefined, created_at: undefined, hub_id: state.hub.id }).select().single();
+        let storage_path: string | null = null;
+        if (file) {
+          storage_path = `${state.hub.id}/${uid()}-${d.name.replace(/[^\w.\-]+/g, "_")}`;
+          const { error: upErr } = await sb().storage.from("ho-docs").upload(storage_path, file, { upsert: false });
+          if (upErr) storage_path = null;
+        }
+        const { data } = await sb().from("ho_documents").insert({ ...doc, id: undefined, created_at: undefined, hub_id: state.hub.id, storage_path }).select().single();
         setState((s) => ({ ...s, docs: [(data as Doc) || doc, ...s.docs] }));
       }
     },
     async removeDoc(id) {
-      if (state.demo) persistDemo({ docs: state.docs.filter((d) => d.id !== id) });
-      else {
-        await sb().from("ho_documents").delete().eq("id", id);
-        setState((s) => ({ ...s, docs: s.docs.filter((d) => d.id !== id) }));
-      }
+      if (state.demo) { persistDemo({ docs: state.docs.filter((d) => d.id !== id) }); return; }
+      const doc = state.docs.find((d) => d.id === id) as (Doc & { storage_path?: string | null }) | undefined;
+      if (doc?.storage_path) await sb().storage.from("ho-docs").remove([doc.storage_path]);
+      await sb().from("ho_documents").delete().eq("id", id);
+      setState((s) => ({ ...s, docs: s.docs.filter((d) => d.id !== id) }));
+    },
+    async docUrl(id) {
+      if (state.demo) return null;
+      const doc = state.docs.find((d) => d.id === id) as (Doc & { storage_path?: string | null }) | undefined;
+      if (!doc?.storage_path) return null;
+      const { data } = await sb().storage.from("ho-docs").createSignedUrl(doc.storage_path, 300);
+      return data?.signedUrl ?? null;
     },
     async updateMortgage(m) {
       if (state.demo) persistDemo({ mortgages: state.mortgages.map((x) => (x.id === m.id ? { ...x, ...m } : x)) });

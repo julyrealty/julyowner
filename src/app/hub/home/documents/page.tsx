@@ -9,7 +9,7 @@ import { Umbrella, ShieldCheck, FolderOpen, FileText, UploadCloud, Trash2, Plus,
 const BUILT_IN = ["Insurance", "Warranty"];
 
 export default function DocumentsPage() {
-  const { docs, addDoc, removeDoc } = useHub();
+  const { docs, addDoc, removeDoc, docUrl, demo } = useHub();
   const [folder, setFolder] = useState<string | null>(null);
   const [newFolder, setNewFolder] = useState(false);
   const [drag, setDrag] = useState(false);
@@ -28,8 +28,13 @@ export default function DocumentsPage() {
     if (!files) return;
     Array.from(files).forEach((f) => {
       if (f.size > 20 * 1024 * 1024) { alert(`${f.name} is over the 20 MB limit.`); return; }
-      addDoc({ folder: folder || "Everything else", name: f.name, size_bytes: f.size });
+      addDoc({ folder: folder || "Everything else", name: f.name, size_bytes: f.size }, f);
     });
+  }
+
+  async function openDoc(id: string) {
+    const url = await docUrl(id);
+    if (url) window.open(url, "_blank");
   }
 
   const iconFor = (f: string) =>
@@ -85,10 +90,10 @@ export default function DocumentsPage() {
               {inFolder.map((d) => (
                 <Card key={d.id} className="flex items-center gap-3 p-4">
                   <FileText size={18} className="shrink-0 text-coral" />
-                  <div className="min-w-0 flex-1">
-                    <p className="truncate text-sm font-bold">{d.name}</p>
+                  <button className="min-w-0 flex-1 text-left" onClick={() => openDoc(d.id)} title={demo ? "Stored for this browser session" : "Open file"}>
+                    <p className="truncate text-sm font-bold hover:text-teal">{d.name}</p>
                     <p className="text-xs text-gray-400">{(d.size_bytes / 1024).toFixed(0)} KB · added {relTime(d.created_at)}</p>
-                  </div>
+                  </button>
                   <button className="shrink-0 text-gray-300 hover:text-coral" title="Delete" onClick={() => removeDoc(d.id)}><Trash2 size={16} /></button>
                 </Card>
               ))}
