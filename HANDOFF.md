@@ -163,8 +163,24 @@ OPEN (build roadmap — agreed sequence):
   selling-first sort on hubs, "Active seller" cards atop Signals, dashboard
   selling-mode chip. Demo: pro book shows 2718 W 21st Ave as selling;
   homeowner demo starts in owning mode so the activation funnel shows.
-- P1 still open: JULY Value API into pricing lab (replace static estimate),
-  sold comps from july-platform DB.
+- **JULY VALUE API: WIRED 2026-07-17.** Base + enterprise key live in
+  ho_config (`julyvalue_api_url`, `julyvalue_api_key` — server-only; key
+  also in Han's Downloads/api-keys.txt, NEVER commit it). Flow: GET
+  `/search?q=<number street>` (city-less query!) → pick unit+city-safe
+  match (wrong unit/city ⇒ no result on purpose) → POST `/estimate`
+  {propertyId} → {estimate,low,high,confidence,attribution}. Edge fn
+  **ho-value** (refresh action; member/pro JWT path + cron-secret internal
+  path; updates ho_hubs home_value/value_low/value_high/value_updated/
+  value_confidence). store.tsx auto-refreshes stale (>30d) or missing
+  values once per load + manual refreshValue(); pricing lab shows "JULY
+  Value estimate" + confidence chip + required attribution line.
+  **ho-emails v4**: valuation_lead ops email now embeds the instant JULY
+  Value estimate block (or "no match yet" line). SQL-verified end-to-end
+  on 404-5535 Hastings St, Burnaby (est $1,205,000 high) incl. wrong-unit
+  refusal. Coverage is Burnaby-first today — Vancouver addresses return
+  matched:false and hubs keep purchase-anchored values; widen as JULY
+  Value's property DB grows.
+- P1 still open: sold comps from july-platform DB into pricing lab.
 - P1 also: JULY Search API into buyer playbook (saved/viewed/liked, tours),
   JULY Value gap badges, BuyerAiPro scan-from-hub (mint internal key via its
   scripts/make-api-key.mjs), inspection-scan → inventory graduation bridge.

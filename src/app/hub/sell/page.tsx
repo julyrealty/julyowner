@@ -35,8 +35,9 @@ function monthOptions(): { value: string; label: string }[] {
 export default function SellPage() {
   const {
     hub, mortgages, tasks, inventory, pro, advisor, demo,
-    startSelling, setListingStatus, setTaskStatus, updateHub, createLead,
+    startSelling, setListingStatus, setTaskStatus, updateHub, createLead, refreshValue,
   } = useHub();
+  const [refreshing, setRefreshing] = useState(false);
   const params = useSearchParams();
   const q = params.get("demo") === "1" ? "?demo=1" : "";
 
@@ -234,12 +235,30 @@ export default function SellPage() {
             <Card className="p-5 sm:p-6">
               <div className="flex flex-wrap items-baseline justify-between gap-2">
                 <div>
-                  <p className="text-xs font-bold uppercase tracking-wide text-gray-400">Estimated value</p>
-                  <p className="tabular text-2xl font-extrabold">{cad(value)}</p>
+                  <p className="text-xs font-bold uppercase tracking-wide text-gray-400">JULY Value estimate</p>
+                  <div className="flex items-center gap-2">
+                    <p className="tabular text-2xl font-extrabold">{cad(value)}</p>
+                    {hub.value_confidence && (
+                      <span className={`rounded-full px-2 py-0.5 text-[10px] font-extrabold uppercase tracking-wide ${
+                        hub.value_confidence === "high" ? "bg-teal-soft text-teal-deep"
+                        : hub.value_confidence === "medium" ? "bg-amber-100 text-amber-700"
+                        : "bg-gray-100 text-gray-500"}`}>
+                        {hub.value_confidence} confidence
+                      </span>
+                    )}
+                  </div>
                 </div>
                 <p className="text-xs text-gray-400">
                   Range {compact(hub.value_low ?? value * 0.94)} – {compact(hub.value_high ?? value * 1.06)}
                   {hub.value_updated ? ` · updated ${fmtDate(hub.value_updated)}` : ""}
+                  {!demo && (
+                    <button
+                      className="ml-2 font-bold text-teal-deep underline disabled:opacity-50"
+                      disabled={refreshing}
+                      onClick={async () => { setRefreshing(true); try { await refreshValue(); } finally { setRefreshing(false); } }}>
+                      {refreshing ? "Refreshing…" : "Refresh"}
+                    </button>
+                  )}
                 </p>
               </div>
 
@@ -272,6 +291,7 @@ export default function SellPage() {
               </div>
               <p className="mt-2 text-[11px] text-gray-400">
                 *Based on {MARKET.area} averaging {MARKET.daysOnMarket} days on market and selling at {(MARKET.listToSale * 100).toFixed(1)}% of list.
+                {" "}Estimate by JULY Value (julyvalue.com), operated by JULY Realty Inc. Not an appraisal.
               </p>
 
               <div className="mt-5 border-t border-line pt-4">

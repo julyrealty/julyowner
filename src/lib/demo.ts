@@ -225,6 +225,7 @@ export const DEMO_HUB = {
   value_low: 1721000,
   value_high: 2009000,
   value_updated: "2026-07-02",
+  value_confidence: "high" as const,
   owner_first: "Dana",
   owner_last: "Whitfield",
   owner_email: "dana@example.com",

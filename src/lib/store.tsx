@@ -27,6 +27,7 @@ export type Hub = {
   id: string; address1: string; unit?: string | null; city: string | null; region: string | null; postal: string | null;
   full_address: string | null; purchase_price: number | null; purchase_date: string | null;
   home_value: number | null; value_low: number | null; value_high: number | null; value_updated: string | null;
+  value_confidence?: "low" | "medium" | "high" | null;
   verification_status?: "unverified" | "flagged" | "verified"; dup_of?: string | null;
   journey?: "buying" | "owning" | "selling" | "sold";
   selling_started_at?: string | null; target_list_month?: string | null;
@@ -68,6 +69,7 @@ type HubActions = {
   updateMortgage: (m: Partial<Mortgage> & { id: string }) => Promise<void>;
   addMortgage: (m: Omit<Mortgage, "id" | "is_primary">) => Promise<void>;
   updateHub: (h: Partial<Hub>) => Promise<void>;
+  refreshValue: () => Promise<void>;
   startSelling: (targetListMonth?: string) => Promise<void>;
   setListingStatus: (status: NonNullable<Hub["listing_status"]>) => Promise<void>;
   createLead: (kind: "sell" | "loan" | "service" | "general" | "valuation", message: string) => Promise<void>;
@@ -192,6 +194,32 @@ export function HubProvider({ children, demo }: { children: React.ReactNode; dem
     return () => { alive = false; };
   }, [demo]);
 
+  /* ---------- JULY Value: refresh a missing/stale estimate once per load (live only) ---------- */
+  const valueRefreshed = React.useRef(false);
+  useEffect(() => {
+    if (state.loading || state.demo || !state.hub || valueRefreshed.current) return;
+    const h = state.hub;
+    const stale = !h.home_value || !h.value_updated ||
+      Date.now() - new Date(h.value_updated).getTime() > 30 * 86400000;
+    if (!stale) return;
+    valueRefreshed.current = true;
+    (async () => {
+      try {
+        const { data } = await sb().functions.invoke("ho-value", { body: { action: "refresh", hub_id: h.id } });
+        if (data?.matched) {
+          setState((s) => ({
+            ...s,
+            hub: s.hub ? {
+              ...s.hub, home_value: data.home_value, value_low: data.value_low,
+              value_high: data.value_high, value_updated: data.value_updated,
+              value_confidence: data.value_confidence,
+            } : s.hub,
+          }));
+        }
+      } catch { /* keep whatever estimate we had */ }
+    })();
+  }, [state.loading, state.demo, state.hub]);
+
   /* ---------- persistence helpers ---------- */
   const persistDemo = useCallback((next: Partial<HubState>) => {
     setState((s) => {
@@ -304,6 +332,22 @@ export function HubProvider({ children, demo }: { children: React.ReactNode; dem
         await sb().from("ho_hubs").update(h).eq("id", state.hub.id);
         setState((s) => ({ ...s, hub: s.hub ? { ...s.hub, ...h } : s.hub }));
       }
+    },
+    async refreshValue() {
+      if (state.demo || !state.hub) return;
+      try {
+        const { data } = await sb().functions.invoke("ho-value", { body: { action: "refresh", hub_id: state.hub.id } });
+        if (data?.matched) {
+          setState((s) => ({
+            ...s,
+            hub: s.hub ? {
+              ...s.hub, home_value: data.home_value, value_low: data.value_low,
+              value_high: data.value_high, value_updated: data.value_updated,
+              value_confidence: data.value_confidence,
+            } : s.hub,
+          }));
+        }
+      } catch { /* keep whatever estimate we had */ }
     },
     async startSelling(targetListMonth) {
       if (!state.hub || state.hub.journey === "selling") return;
