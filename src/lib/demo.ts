@@ -266,4 +266,15 @@ export const DEMO_ACTIVITIES = [
   { id: "a6", hub: "2718 W 21st Ave", member: "Dana Whitfield", action: "Clicked Sell My Home", detail: "Lead created", when: "2026-07-10T16:03:00Z" },
 ];
 
+/** Selling Roadmap templates — merged with items generated from the home's own inventory. */
+export const SELLER_TASKS: { title: string; minutes: number }[] = [
+  { title: "Walk-through & pricing strategy with your advisor", minutes: 60 },
+  { title: "Declutter and deep clean", minutes: 240 },
+  { title: "Book a pre-listing inspection", minutes: 90 },
+  { title: "Gather documents: title, tax notice, permits, warranties", minutes: 45 },
+  { title: "Paint touch-ups where buyers look first", minutes: 180 },
+  { title: "Boost curb appeal: entry, lights, plants", minutes: 120 },
+  { title: "Professional photos & floor plan", minutes: 90 },
+];
+
 export const uid = () => Math.random().toString(36).slice(2, 10);

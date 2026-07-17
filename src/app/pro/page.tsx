@@ -4,7 +4,7 @@ import { usePro } from "@/lib/pro-store";
 import { cad, relTime } from "@/lib/calc";
 import { Card, SectionLabel, Avatar } from "@/components/ui";
 import { Donut } from "@/components/charts";
-import { ArrowUpRight, UserPlus } from "lucide-react";
+import { ArrowUpRight, Flame, UserPlus } from "lucide-react";
 import { DEMO_HUB } from "@/lib/demo";
 
 export default function ProDashboard() {
@@ -13,6 +13,7 @@ export default function ProDashboard() {
 
   const totalValue = demo ? DEMO_HUB.home_value + 1120000 : hubs.length * 1200000;
   const commission = Math.round((totalValue * 0.025) / 1000) * 1000;
+  const selling = hubs.filter((h) => h.journey === "selling").length;
   const joined = contacts.filter((c) => c.joined > 0).length;
   const invited = contacts.filter((c) => c.pending > 0).length;
   const unclaimed = Math.max(0, contacts.length - joined - invited);
@@ -46,6 +47,11 @@ export default function ProDashboard() {
           </Card>
         ))}
       </div>
+      {selling > 0 && (
+        <Link href={`/pro/hubs${q}`} className="mt-3 inline-flex items-center gap-1.5 rounded-full bg-coral/10 px-3 py-1.5 text-[12px] font-extrabold text-coral hover:bg-coral/20">
+          <Flame size={13} /> {selling} homeowner{selling === 1 ? "" : "s"} in selling mode
+        </Link>
+      )}
 
       <div className="mt-6 grid gap-6 lg:grid-cols-[1fr_360px]">
         {/* ACTIVITY FEED */}

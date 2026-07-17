@@ -5,7 +5,7 @@
 import React, { createContext, useCallback, useContext, useEffect, useMemo, useState } from "react";
 import { sb } from "./supabase";
 import {
-  DEMO_HUB, DEMO_MORTGAGE, DEMO_PRO, DEMO_ADVISOR, DEMO_WHATS_NEXT,
+  DEMO_HUB, DEMO_MORTGAGE, DEMO_PRO, DEMO_ADVISOR, DEMO_WHATS_NEXT, SELLER_TASKS,
   findCatalogItem, areaOf, uid,
 } from "./demo";
 
@@ -28,6 +28,9 @@ export type Hub = {
   full_address: string | null; purchase_price: number | null; purchase_date: string | null;
   home_value: number | null; value_low: number | null; value_high: number | null; value_updated: string | null;
   verification_status?: "unverified" | "flagged" | "verified"; dup_of?: string | null;
+  journey?: "buying" | "owning" | "selling" | "sold";
+  selling_started_at?: string | null; target_list_month?: string | null;
+  listing_status?: "preparing" | "listed" | "offers" | "sold" | null;
 };
 export type Profile = {
   id: string; role: "homeowner" | "professional"; first_name: string | null; last_name: string | null;
@@ -65,7 +68,9 @@ type HubActions = {
   updateMortgage: (m: Partial<Mortgage> & { id: string }) => Promise<void>;
   addMortgage: (m: Omit<Mortgage, "id" | "is_primary">) => Promise<void>;
   updateHub: (h: Partial<Hub>) => Promise<void>;
-  createLead: (kind: "sell" | "loan" | "service" | "general", message: string) => Promise<void>;
+  startSelling: (targetListMonth?: string) => Promise<void>;
+  setListingStatus: (status: NonNullable<Hub["listing_status"]>) => Promise<void>;
+  createLead: (kind: "sell" | "loan" | "service" | "general" | "valuation", message: string) => Promise<void>;
   logActivity: (action: string, detail?: string) => void;
   signOut: () => Promise<void>;
 };
@@ -299,6 +304,47 @@ export function HubProvider({ children, demo }: { children: React.ReactNode; dem
         await sb().from("ho_hubs").update(h).eq("id", state.hub.id);
         setState((s) => ({ ...s, hub: s.hub ? { ...s.hub, ...h } : s.hub }));
       }
+    },
+    async startSelling(targetListMonth) {
+      if (!state.hub || state.hub.journey === "selling") return;
+      const patch: Partial<Hub> = {
+        journey: "selling",
+        selling_started_at: new Date().toISOString(),
+        listing_status: "preparing",
+        target_list_month: targetListMonth || null,
+      };
+      // Seed the Selling Roadmap, skipping titles the hub already has.
+      const have = new Set(state.tasks.map((t) => t.title));
+      const roadmap: Task[] = SELLER_TASKS.filter((t) => !have.has(t.title)).map((t, i) => ({
+        id: uid(), title: t.title, frequency: "once",
+        due_date: dueFrom("once", new Date(Date.now() + i * 4 * 86400000)),
+        minutes: t.minutes, difficulty: "Basic", status: "pending" as const,
+      }));
+      if (state.demo) {
+        persistDemo({ hub: { ...state.hub, ...patch }, tasks: [...state.tasks, ...roadmap] });
+        return;
+      }
+      const supa = sb();
+      await supa.from("ho_hubs").update(patch).eq("id", state.hub.id);
+      const { data: tins } = await supa.from("ho_tasks")
+        .insert(roadmap.map((t) => ({ ...t, id: undefined, hub_id: state.hub!.id })))
+        .select();
+      setState((s) => ({
+        ...s,
+        hub: s.hub ? { ...s.hub, ...patch } : s.hub,
+        tasks: [...s.tasks, ...((tins as Task[]) || roadmap)],
+      }));
+      actions.logActivity("Started a selling plan", targetListMonth ? `Target list month ${targetListMonth}` : undefined);
+      // High-intent signal for the sponsoring professional (fire-and-forget).
+      void supa.functions.invoke("ho-emails", { body: { action: "selling_started", hub_id: state.hub.id } }).catch(() => {});
+    },
+    async setListingStatus(status) {
+      if (!state.hub) return;
+      const patch: Partial<Hub> = { journey: status === "sold" ? "sold" : "selling", listing_status: status };
+      if (state.demo) { persistDemo({ hub: { ...state.hub, ...patch } }); return; }
+      await sb().from("ho_hubs").update(patch).eq("id", state.hub.id);
+      setState((s) => ({ ...s, hub: s.hub ? { ...s.hub, ...patch } : s.hub }));
+      actions.logActivity("Updated listing status", status);
     },
     async createLead(kind, message) {
       if (!state.demo && state.hub) {

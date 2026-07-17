@@ -47,10 +47,19 @@ export default function HubDashboard() {
             <p className="mt-1 text-sm text-white/70">Here&apos;s what your home has been up to.</p>
           </div>
           <Card className="w-full max-w-sm p-5 text-ink">
-            <p className="font-bold">{hub?.address1}</p>
+            <div className="flex items-center justify-between gap-2">
+              <p className="min-w-0 truncate font-bold">{hub?.address1}</p>
+              {(hub?.journey === "selling" || hub?.journey === "sold") && (
+                <span className="shrink-0 rounded-full bg-coral/10 px-2.5 py-0.5 text-[11px] font-extrabold text-coral">
+                  {hub?.journey === "sold" ? "Sold" : "Selling"}
+                </span>
+              )}
+            </div>
             <p className="text-sm text-gray-500">{[hub?.city, hub?.region, hub?.postal].filter(Boolean).join(", ")}</p>
             <div className="mt-4 grid grid-cols-2 gap-2">
-              <button className="btn btn-primary btn-sm" onClick={() => { setLeadDone(false); setLeadModal("sell"); }}>Sell my home</button>
+              <Link href={`/hub/sell${q}`} className="btn btn-primary btn-sm">
+                {hub?.journey === "selling" || hub?.journey === "sold" ? "My selling plan" : "Sell my home"}
+              </Link>
               <button className="btn btn-ghost btn-sm" onClick={() => { setLeadDone(false); setLeadModal("loan"); }}>Get a loan</button>
             </div>
           </Card>

@@ -4,7 +4,7 @@ import Link from "next/link";
 import { usePathname, useSearchParams } from "next/navigation";
 import {
   Home, LayoutDashboard, Wrench, PiggyBank, TrendingUp, House,
-  LogOut, RotateCcw, Sparkles,
+  LogOut, RotateCcw, Sparkles, Tag,
 } from "lucide-react";
 import { HubProvider, useHub, resetDemo } from "@/lib/store";
 import { Spinner, Modal } from "@/components/ui";
@@ -54,6 +54,12 @@ function Shell({ children }: { children: React.ReactNode }) {
   const active = (href: string) =>
     href === "/hub" ? path === "/hub" : path.startsWith(href);
 
+  // Seller mode gets its own tab, right after the dashboard.
+  const selling = hub?.journey === "selling" || hub?.journey === "sold";
+  const nav = selling
+    ? [NAV[0], { href: "/hub/sell", label: "Selling", icon: Tag }, ...NAV.slice(1)]
+    : NAV;
+
   // White-label: the hub inherits the sponsoring professional's brand colour.
   const brand = (pro as { brand_color?: string | null })?.brand_color || "#0e7c7b";
   const brandVars = {
@@ -89,7 +95,7 @@ function Shell({ children }: { children: React.ReactNode }) {
             <span className="flex items-center gap-0.5 text-teal"><Home size={16} strokeWidth={2.8} />Owner</span>
           </Link>
           <nav className="hidden items-center gap-1 md:flex">
-            {NAV.map((n) => (
+            {nav.map((n) => (
               <Link key={n.href} href={`${n.href}${q}`}
                 className={`rounded-full px-4 py-2 text-sm font-semibold transition ${active(n.href) ? "bg-teal-soft text-teal-deep" : "text-gray-600 hover:bg-gray-100"}`}>
                 {n.label}
@@ -143,12 +149,12 @@ function Shell({ children }: { children: React.ReactNode }) {
 
       {/* Mobile bottom nav */}
       <nav className="fixed inset-x-0 bottom-0 z-40 border-t border-line bg-white/95 backdrop-blur md:hidden" style={{ paddingBottom: "env(safe-area-inset-bottom)" }}>
-        <div className="grid grid-cols-5">
-          {NAV.map((n) => (
+        <div className={nav.length === 6 ? "grid grid-cols-6" : "grid grid-cols-5"}>
+          {nav.map((n) => (
             <Link key={n.href} href={`${n.href}${q}`}
               className={`flex flex-col items-center gap-0.5 py-2.5 text-[10px] font-bold ${active(n.href) ? "text-teal" : "text-gray-400"}`}>
               <n.icon size={20} strokeWidth={active(n.href) ? 2.6 : 2} />
-              {n.label.replace(" Home", "").replace("Build ", "")}
+              {({ "Manage Home": "Manage", "Save Money": "Save", "Build Wealth": "Wealth" } as Record<string, string>)[n.label] ?? n.label}
             </Link>
           ))}
         </div>

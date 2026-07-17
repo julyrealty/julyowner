@@ -4,9 +4,20 @@ import { usePro } from "@/lib/pro-store";
 import { Card, Avatar } from "@/components/ui";
 import { KeyRound, ExternalLink } from "lucide-react";
 
+const LISTING_LABEL: Record<string, string> = {
+  preparing: "Preparing to list",
+  listed: "Live on market",
+  offers: "Reviewing offers",
+  sold: "Sold",
+};
+
 export default function ProHubs() {
   const { hubs, demo } = usePro();
   const q = demo ? "?demo=1" : "";
+
+  // Live sellers first, sold second, everyone else after — agents scan top-down.
+  const rank = (j?: string) => (j === "selling" ? 0 : j === "sold" ? 1 : 2);
+  const sorted = [...hubs].sort((a, b) => rank(a.journey) - rank(b.journey));
 
   return (
     <div className="px-4 py-6 sm:px-6 lg:px-8">
@@ -19,12 +30,22 @@ export default function ProHubs() {
       </div>
 
       <div className="mt-6 space-y-2">
-        {hubs.map((h) => (
+        {sorted.map((h) => (
           <Card key={h.id} className="flex items-center gap-3 p-4">
             <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-teal-soft text-teal"><KeyRound size={18} /></span>
             <div className="min-w-0 flex-1">
-              <p className="truncate font-bold">{h.address}</p>
-              <p className="text-xs text-gray-400">Updated {h.updated}</p>
+              <div className="flex min-w-0 items-center gap-2">
+                <p className="truncate font-bold">{h.address}</p>
+                {h.journey === "selling" && (
+                  <span className="shrink-0 rounded-full bg-coral/10 px-2.5 py-0.5 text-[11px] font-extrabold text-coral">Selling</span>
+                )}
+                {h.journey === "sold" && (
+                  <span className="shrink-0 rounded-full bg-amber-50 px-2.5 py-0.5 text-[11px] font-extrabold text-amber-700">Sold</span>
+                )}
+              </div>
+              <p className="text-xs text-gray-400">
+                {h.journey === "selling" && h.listing_status ? `${LISTING_LABEL[h.listing_status]} · ` : ""}Updated {h.updated}
+              </p>
             </div>
             <div className="hidden items-center gap-2 sm:flex">
               <Avatar name={h.contact} size={30} />

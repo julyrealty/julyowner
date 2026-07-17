@@ -156,6 +156,53 @@ export function valueSeries(purchasePrice: number, purchaseDate: string, current
   return out;
 }
 
+/* ---- Seller math (BC conventions) ---- */
+
+/** Typical BC gross commission: one rate on the first $100K, another on the balance. */
+export function bcCommission(price: number, firstPct = 7, restPct = 2.5): number {
+  const first = Math.min(Math.max(0, price), 100_000);
+  const rest = Math.max(0, price - 100_000);
+  return first * (firstPct / 100) + rest * (restPct / 100);
+}
+
+/** Payout penalty approximation: 3 months' interest. (Fixed terms may owe IRD instead — UI carries the caveat.) */
+export function threeMonthInterest(balance: number, annualPct: number): number {
+  return (balance * (annualPct / 100)) / 4;
+}
+
+export type NetProceedsInput = {
+  price: number;
+  mortgages: { balance: number; rate: number; loan_type?: string | null }[];
+  commissionFirstPct?: number;
+  commissionRestPct?: number;
+  legal?: number;
+  staging?: number;
+  moving?: number;
+  penaltyOverride?: number | null;
+};
+
+export function netProceeds(i: NetProceedsInput) {
+  const commission = bcCommission(i.price, i.commissionFirstPct ?? 7, i.commissionRestPct ?? 2.5);
+  const gst = commission * 0.05; // GST applies to commission in BC
+  const balances = i.mortgages.reduce((s, m) => s + (m.balance || 0), 0);
+  const penalty = i.penaltyOverride ?? i.mortgages.reduce((s, m) => s + threeMonthInterest(m.balance || 0, m.rate || 0), 0);
+  const legal = i.legal ?? 1400;
+  const staging = i.staging ?? 0;
+  const moving = i.moving ?? 2200;
+  const costs = commission + gst + penalty + legal + staging + moving;
+  return {
+    commission, gst, balances, penalty, legal, staging, moving,
+    totalCosts: costs,
+    net: i.price - balances - costs,
+  };
+}
+
+/** Days-on-market guess for a list price relative to the estimate. */
+export function domEstimate(baseDom: number, listPrice: number, estimate: number): number {
+  const premium = estimate > 0 ? listPrice / estimate - 1 : 0;
+  return Math.max(6, Math.round(baseDom * (1 + premium * 9)));
+}
+
 export const monthsBetween = (a: Date, b: Date) =>
   (b.getFullYear() - a.getFullYear()) * 12 + (b.getMonth() - a.getMonth());
 

@@ -149,11 +149,22 @@ verification (for JULY Answer later); rotate exposed VERCEL_TOKEN +
 SUPABASE_ACCESS_TOKEN (BuyerAiPro handoff §10.9).
 
 OPEN (build roadmap — agreed sequence):
-- **P1 next: SELLER MODE** in this repo — journey stage on hubs; Selling
-  Roadmap (checklist from their own inventory), pricing lab (JULY Value API
-  + sold comps), net-proceeds calculator (uses stored mortgages incl. payout
-  penalty), pre-sale ROI re-rank of improvements, listing tracker, "What's
-  my home worth" public lead page.
+- **SELLER MODE: SHIPPED 2026-07-17.** `journey` / `listing_status` /
+  `target_list_month` on ho_hubs (migration `ho_seller_mode`); `/hub/sell`
+  (activation → pricing lab + net-proceeds w/ BC commission 7%/2.5% + GST +
+  3-mo-interest penalty w/ IRD caveat + roadmap seeded from SELLER_TASKS +
+  risk-item warnings + pre-sale ROI re-rank + listing tracker + pause);
+  seller math in calc.ts (netProceeds/bcCommission/domEstimate); store
+  actions startSelling/setListingStatus (live mode also fires
+  'selling_started' email to the pro via ho-emails v3); conditional
+  Selling nav tab; public `/worth` page → anon ho_leads kind='valuation'
+  insert → DB trigger → ops email (pipeline SQL-verified end-to-end);
+  landing "Thinking of selling?" band; pro portal: Selling/Sold pills +
+  selling-first sort on hubs, "Active seller" cards atop Signals, dashboard
+  selling-mode chip. Demo: pro book shows 2718 W 21st Ave as selling;
+  homeowner demo starts in owning mode so the activation funnel shows.
+- P1 still open: JULY Value API into pricing lab (replace static estimate),
+  sold comps from july-platform DB.
 - P1 also: JULY Search API into buyer playbook (saved/viewed/liked, tours),
   JULY Value gap badges, BuyerAiPro scan-from-hub (mint internal key via its
   scripts/make-api-key.mjs), inspection-scan → inventory graduation bridge.

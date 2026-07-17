@@ -1,15 +1,23 @@
 "use client";
 import { useState } from "react";
+import Link from "next/link";
 import { usePro } from "@/lib/pro-store";
+import { relTime } from "@/lib/calc";
 import { Card, Pill, Avatar } from "@/components/ui";
 import { Star, Flame } from "lucide-react";
 
 export default function ProOpportunities() {
-  const { contacts, activities } = usePro();
+  const { contacts, activities, hubs, demo } = usePro();
   const [onlyLikely, setOnlyLikely] = useState(false);
+  const q = demo ? "?demo=1" : "";
+
+  // Homeowners who have actually flipped their hub into selling mode — live, not predicted.
+  const sellers = hubs.filter((h) => h.journey === "selling");
+  const sellerNames = new Set(sellers.map((h) => h.contact));
 
   const scored = contacts
     .filter((c) => typeof c.propensity === "number")
+    .filter((c) => !sellerNames.has(`${c.first_name} ${c.last_name}`)) // already selling — shown above, no score needed
     .sort((a, b) => (b.propensity ?? 0) - (a.propensity ?? 0))
     .filter((c) => !onlyLikely || (c.propensity ?? 0) >= 65);
 
@@ -28,6 +36,31 @@ export default function ProOpportunities() {
           <Flame size={14} /> Likely sellers only
         </button>
       </div>
+
+      {sellers.length > 0 && (
+        <div className="mt-5 space-y-2">
+          {sellers.map((h) => (
+            <Card key={h.id} className="flex items-center gap-3 border-coral/40 bg-red-50/50 p-4">
+              <Flame size={16} className="shrink-0 text-coral" />
+              <Avatar name={h.contact} size={36} />
+              <div className="min-w-0 flex-1">
+                <p className="font-bold">
+                  {h.contact}
+                  <span className="ml-2 rounded-full bg-coral/10 px-2.5 py-0.5 text-[11px] font-extrabold text-coral">Active seller</span>
+                </p>
+                <p className="truncate text-xs text-gray-500">
+                  Started their selling plan{h.selling_started_at ? ` ${relTime(h.selling_started_at)}` : ""} · {h.address}
+                </p>
+              </div>
+              <div className="hidden w-24 shrink-0 text-right sm:block">
+                <p className="text-xl font-extrabold text-coral">Live</p>
+                <p className="text-[10px] font-bold uppercase tracking-wide text-gray-400">Not a prediction</p>
+              </div>
+              <Link href={`/hub${q}`} className="btn btn-coral btn-sm shrink-0">Open hub</Link>
+            </Card>
+          ))}
+        </div>
+      )}
 
       {hot.length > 0 && (
         <Card className="mt-5 border-coral/40 bg-red-50/50 p-4">
@@ -61,7 +94,7 @@ export default function ProOpportunities() {
             </Card>
           );
         })}
-        {scored.length === 0 && (
+        {scored.length === 0 && sellers.length === 0 && (
           <Card className="p-10 text-center text-sm text-gray-500">
             Signals build as your homeowners engage with their hubs — invite more contacts to light this up.
           </Card>

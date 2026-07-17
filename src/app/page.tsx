@@ -15,6 +15,7 @@ export default function Landing() {
             <a href="#features" className="hover:text-ink">What you get</a>
             <a href="#how" className="hover:text-ink">How it works</a>
             <a href="#faq" className="hover:text-ink">FAQ</a>
+            <Link href="/worth" className="hover:text-ink">Home worth</Link>
             <Link href="/professionals" className="hover:text-ink">For professionals</Link>
           </nav>
           <div className="flex items-center gap-2">
@@ -120,6 +121,25 @@ export default function Landing() {
               </div>
             ))}
           </div>
+        </div>
+      </section>
+
+      {/* SELLER HOOK */}
+      <section className="bg-teal">
+        <div className="container-x flex flex-col items-start justify-between gap-6 py-14 sm:flex-row sm:items-center">
+          <div>
+            <p className="eyebrow text-white/70">Free home valuation</p>
+            <h2 className="mt-2 text-3xl font-extrabold tracking-tight text-white sm:text-4xl">
+              Thinking of selling? Know your number first.
+            </h2>
+            <p className="mt-2 max-w-xl text-white/85">
+              A JULY advisor prepares a real market evaluation — your realistic range and what
+              you&apos;d actually walk away with — within one business day. Free, no obligation.
+            </p>
+          </div>
+          <Link href="/worth" className="btn btn-lg shrink-0 bg-white text-teal hover:opacity-90">
+            Get my free valuation <ArrowRight size={18} />
+          </Link>
         </div>
       </section>
 
@@ -239,6 +259,7 @@ export default function Landing() {
             </p>
           </div>
           <div className="flex flex-wrap gap-x-6 gap-y-2 text-sm font-semibold text-[#cfc7b8]">
+            <Link href="/worth" className="hover:text-white">Home worth</Link>
             <Link href="/professionals" className="hover:text-white">For professionals</Link>
             <Link href="/login" className="hover:text-white">Sign in</Link>
             <Link href="/claim" className="hover:text-white">Claim your home</Link>
