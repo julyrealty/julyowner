@@ -18,6 +18,28 @@ export type CityMarket = {
   avg_ppsf: number | null;
 };
 
+export type RentCell = {
+  beds: number; building_type: string | null;
+  median_rent: number | null; sample: number | null;
+};
+
+/** Median asking rents per bedroom count for a city (building_type 'any' cells).
+ *  Null on any failure — callers hide their rental UI. */
+export async function fetchCityRents(city: string): Promise<RentCell[] | null> {
+  if (!city?.trim()) return null;
+  try {
+    const url = `${PLATFORM_URL}/rest/v1/rent_model` +
+      `?select=beds,building_type,median_rent,sample` +
+      `&city=eq.${encodeURIComponent(city.trim())}&building_type=eq.any&beds=gte.0&order=beds`;
+    const res = await fetch(url, { headers: { apikey: PLATFORM_KEY } });
+    if (!res.ok) return null;
+    const rows = (await res.json()) as RentCell[];
+    return Array.isArray(rows) && rows.length > 0 ? rows.filter((r) => r.median_rent) : null;
+  } catch {
+    return null;
+  }
+}
+
 export type SoldComp = {
   address: string; unit_number: string | null; city: string | null;
   sold_price: number | null; sold_date: string | null; list_price: number | null;

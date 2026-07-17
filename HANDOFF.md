@@ -265,6 +265,14 @@ OPEN (build roadmap — agreed sequence):
   pattern: key-auth'd envelope create/status) or shares the repo.
 - P3: JULY Lend at pre-approval/renewal (renewal radar from stored
   mortgages), Draft+Sign at offer/listing, Insure at subject removal.
+- **INVESTOR SLICE SHIPPED wave 7:** "Rent it instead" card on Build
+  Wealth — live median asking rents from july-platform rent_model
+  (fetchCityRents in platform.ts; anon-readable, building_type='any'
+  cells, sample sizes shown), beds switcher, honest cash-flow model
+  (mortgage pmt + 0.28%/yr tax + $165 ins + 0.5%/yr maintenance + 3%
+  vacancy) PLUS principal-paydown line → "true monthly cost/gain";
+  gross yield; CTA into /hub/messages. Card hides entirely when the
+  rent fetch fails. Full JULY Investor persona still P4.
 - P4: Annual Home Report (**SHIPPED wave 4** — /hub/report: print-ready
   year-in-review; value journey + equity tiles + accomplishments +
   watch list + live market chips + year-ahead w/ renewal callout;

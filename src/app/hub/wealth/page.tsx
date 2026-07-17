@@ -1,11 +1,14 @@
 "use client";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
+import Link from "next/link";
+import { useSearchParams } from "next/navigation";
 import { useHub } from "@/lib/store";
-import { cad, compact, equityUses, purchasingPower, tappableEquity } from "@/lib/calc";
+import { cad, compact, equityUses, purchasingPower, tappableEquity, monthlyPayment, monthlyRate } from "@/lib/calc";
+import { fetchCityRents, type RentCell } from "@/lib/platform";
 import { IMPROVEMENTS, Improvement, ARTICLES } from "@/lib/demo";
 import { Card, SectionLabel, Modal, Pill, Progress, Field } from "@/components/ui";
 import { CompareBars, RangeSlider } from "@/components/charts";
-import { Hammer, Ruler, LineChart as LC, Wallet, Car, Home as HomeIc, Sun, CreditCard, Heart } from "lucide-react";
+import { Hammer, Ruler, LineChart as LC, Wallet, Car, Home as HomeIc, Sun, CreditCard, Heart, KeyRound } from "lucide-react";
 
 const ICONS: Record<string, React.ComponentType<{ size?: number; className?: string }>> = {
   hammer: Hammer, ruler: Ruler, chart: LC, wallet: Wallet, car: Car, home: HomeIc, sun: Sun, card: CreditCard,
@@ -13,9 +16,20 @@ const ICONS: Record<string, React.ComponentType<{ size?: number; className?: str
 
 export default function BuildWealth() {
   const { hub, mortgages, updateHub, logActivity } = useHub();
+  const params = useSearchParams();
+  const q = params.get("demo") === "1" ? "?demo=1" : "";
   const [proj, setProj] = useState<Improvement | null>(null);
   const [editValue, setEditValue] = useState(false);
   const [fav, setFav] = useState<string[]>([]);
+
+  /* investor slice — live median rents from JULY Search's rent model */
+  const [rents, setRents] = useState<RentCell[] | null>(null);
+  const [beds, setBeds] = useState(3);
+  useEffect(() => {
+    let cancelled = false;
+    fetchCityRents(hub?.city || "Vancouver").then((r) => { if (!cancelled) setRents(r); });
+    return () => { cancelled = true; };
+  }, [hub?.city]);
 
   const value = hub?.home_value ?? 0;
   const balance = mortgages.reduce((s, m) => s + (m.balance || 0), 0);
@@ -92,6 +106,76 @@ export default function BuildWealth() {
               ))}
             </div>
           </section>
+
+          {/* RENT IT INSTEAD — investor slice, hidden when no live rent data */}
+          {rents && rents.length > 0 && (() => {
+            const cell = rents.find((r) => r.beds === beds) ?? rents[rents.length - 1];
+            const rent = cell.median_rent ?? 0;
+            const primary = mortgages[0];
+            const pay = primary ? monthlyPayment(primary.balance, primary.rate, primary.amort_years) : 0;
+            const tax = (value * 0.0028) / 12;
+            const ins = 165;
+            const maint = (value * 0.005) / 12;
+            const vac = rent * 0.03;
+            const cashFlow = rent - pay - tax - ins - maint - vac;
+            const principal = primary ? Math.max(0, pay - primary.balance * monthlyRate(primary.rate)) : 0;
+            const trueCost = cashFlow + principal;
+            const grossYield = value ? ((rent * 12) / value) * 100 : 0;
+            const availableBeds = rents.map((r) => r.beds).filter((b) => b >= 1);
+            return (
+              <section>
+                <SectionLabel>Rent it instead</SectionLabel>
+                <Card className="p-5 sm:p-6">
+                  <div className="flex flex-wrap items-center justify-between gap-3">
+                    <div className="flex items-center gap-2">
+                      <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-teal-soft text-teal-deep"><KeyRound size={17} /></span>
+                      <div>
+                        <p className="text-sm font-extrabold">If this were your rental</p>
+                        <p className="text-[11px] text-gray-400">Median asking rent · {hub?.city || "Vancouver"} · live from JULY Search</p>
+                      </div>
+                    </div>
+                    <div className="flex gap-1">
+                      {availableBeds.map((b) => (
+                        <button key={b} onClick={() => setBeds(b)}
+                          className={`rounded-full px-3 py-1 text-xs font-extrabold ${b === beds ? "bg-teal text-white" : "bg-gray-100 text-gray-500 hover:bg-gray-200"}`}>
+                          {b} bd
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+
+                  <div className="mt-4 grid grid-cols-3 gap-2 text-center">
+                    <div className="rounded-xl bg-[#f4f6f5] p-3">
+                      <p className="tabular text-lg font-extrabold">{cad(rent)}<span className="text-xs font-bold text-gray-400">/mo</span></p>
+                      <p className="text-[11px] font-semibold text-gray-500">Median rent ({cell.sample ?? 0} listings)</p>
+                    </div>
+                    <div className="rounded-xl bg-[#f4f6f5] p-3">
+                      <p className={`tabular text-lg font-extrabold ${cashFlow >= 0 ? "text-emerald-600" : "text-coral"}`}>
+                        {cashFlow >= 0 ? "+" : "−"}{cad(Math.abs(cashFlow))}
+                      </p>
+                      <p className="text-[11px] font-semibold text-gray-500">Monthly cash flow</p>
+                    </div>
+                    <div className="rounded-xl bg-[#f4f6f5] p-3">
+                      <p className="tabular text-lg font-extrabold">{grossYield.toFixed(1)}%</p>
+                      <p className="text-[11px] font-semibold text-gray-500">Gross yield</p>
+                    </div>
+                  </div>
+
+                  <p className="mt-3 text-[13px] leading-relaxed text-gray-600">
+                    After the mortgage ({cad(pay)}), taxes, insurance, a maintenance reserve, and vacancy, this rents
+                    {cashFlow >= 0 ? " cash-flow positive" : ` at ${cad(Math.abs(cashFlow))}/mo out of pocket`} — but your tenant also pays down
+                    ≈ <b>{cad(principal)}</b> of principal every month. True monthly {trueCost >= 0 ? "gain" : "cost"}:
+                    <b className={trueCost >= 0 ? " text-emerald-600" : " text-coral"}> {cad(Math.abs(trueCost))}</b>
+                    {" "}— before appreciation.
+                  </p>
+                  <div className="mt-4 flex flex-wrap items-center justify-between gap-2">
+                    <p className="text-[11px] text-gray-400">Planning estimate only — taxes, rates, and rules vary. Not investment advice.</p>
+                    <Link href={`/hub/messages${q}`} className="btn btn-ghost btn-sm shrink-0">Ask about renting it out</Link>
+                  </div>
+                </Card>
+              </section>
+            );
+          })()}
 
           {/* PROJECTS */}
           <section id="projects">
