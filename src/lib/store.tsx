@@ -12,6 +12,7 @@ import {
 export type Mortgage = {
   id: string; lender: string | null; loan_type: string | null; rate: number;
   amort_years: number; start_date: string; original_amount: number; balance: number; is_primary: boolean;
+  term_months?: number;
 };
 export type InventoryItem = {
   id: string; area: string; item_type: string; brand: string | null; model?: string | null;

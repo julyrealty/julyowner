@@ -234,13 +234,14 @@ export const DEMO_HUB = {
 export const DEMO_MORTGAGE = {
   id: "demo-mtg",
   lender: "Coast Pacific Credit Union",
-  loan_type: "5-Year Fixed",
+  loan_type: "3-Year Fixed",
   rate: 4.24,
   amort_years: 25,
   start_date: "2024-03-01",
   original_amount: 760000,
   balance: 713800,
   is_primary: true,
+  term_months: 36,
 };
 
 export const DEMO_WHATS_NEXT: { title: string; minutes: number; frequency: string }[] = [

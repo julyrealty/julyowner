@@ -1,20 +1,35 @@
 "use client";
 import { useMemo, useState } from "react";
 import { useHub, Mortgage } from "@/lib/store";
-import { cad, paidBreakdown, extraPaymentSavings, refiScenario, monthlyPayment } from "@/lib/calc";
+import { cad, paidBreakdown, extraPaymentSavings, refiScenario, monthlyPayment, monthsBetween } from "@/lib/calc";
 import { MARKET, REFI_PRODUCTS } from "@/lib/demo";
 import { Card, SectionLabel, Modal, Field, Progress } from "@/components/ui";
 import { Donut, Sparkline } from "@/components/charts";
 import { ThumbsUp, ThumbsDown } from "lucide-react";
 
+/* Renewal math — Canadian fixed mortgages end at the TERM, not the amortization.
+   Explicit Date parts (noon anchor, fmtDate convention) so date-only strings
+   never drift a day in Pacific time. */
+function renewalDateOf(startDate: string, termMonths: number): Date {
+  const [y, m, d] = startDate.slice(0, 10).split("-").map(Number);
+  return new Date(y, m - 1 + termMonths, d || 1, 12);
+}
+/** Full months from `from` until `target` (day-aware, so Jul 17 → Mar 1 = 7, not 8). */
+function monthsUntil(target: Date, from = new Date()): number {
+  let months = monthsBetween(from, target);
+  if (target.getDate() < from.getDate()) months -= 1;
+  return months;
+}
+
 export default function SaveMoney() {
-  const { mortgages, updateMortgage, addMortgage } = useHub();
+  const { mortgages, updateMortgage, addMortgage, createLead, demo } = useHub();
   const primary = mortgages.find((m) => m.is_primary) || mortgages[0];
   const [extra, setExtra] = useState(250);
   const [years, setYears] = useState(10);
   const [edit, setEdit] = useState<Mortgage | null>(null);
   const [addOpen, setAddOpen] = useState(false);
   const [looksRight, setLooksRight] = useState<null | boolean>(null);
+  const [renewalSent, setRenewalSent] = useState(false);
 
   const breakdown = useMemo(
     () => (primary ? paidBreakdown(primary.original_amount, primary.rate, primary.amort_years, primary.start_date) : null),
@@ -24,6 +39,19 @@ export default function SaveMoney() {
     () => (primary ? extraPaymentSavings(primary.balance, primary.rate, primary.amort_years, extra) : null),
     [primary, extra],
   );
+  // Radar only lights up when a renewal is actually on the horizon (≤18 months out).
+  const renewal = useMemo(() => {
+    if (!primary?.term_months || !primary.start_date) return null;
+    const date = renewalDateOf(primary.start_date, primary.term_months);
+    const monthsLeft = monthsUntil(date);
+    if (monthsLeft < 0 || monthsLeft > 18) return null;
+    const elapsedYears = Math.max(0, monthsBetween(renewalDateOf(primary.start_date, 0), new Date())) / 12;
+    const amortLeft = Math.max(5, primary.amort_years - elapsedYears);
+    const best = MARKET.rates.reduce((lo, r) => (r.rate < lo.rate ? r : lo));
+    const payNow = monthlyPayment(primary.balance, primary.rate, amortLeft);
+    const payBest = monthlyPayment(primary.balance, best.rate, amortLeft);
+    return { date, monthsLeft, best, payNow, payBest, saves: payNow - payBest };
+  }, [primary]);
 
   return (
     <div>
@@ -36,6 +64,58 @@ export default function SaveMoney() {
 
       <div className="container-x grid gap-6 py-8 lg:grid-cols-[1fr_340px]">
         <div className="space-y-8">
+          {/* RENEWAL RADAR */}
+          {primary && renewal && (
+            <section>
+              <Card className="p-6">
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <p className="eyebrow text-teal-deep">Renewal radar</p>
+                  <span className={`tabular inline-flex items-center rounded-full px-2.5 py-0.5 text-[11px] font-extrabold ${renewal.monthsLeft <= 6 ? "bg-amber-50 text-amber-700" : "bg-teal-soft text-teal-deep"}`}>
+                    {renewal.monthsLeft === 0 ? "Renews this month" : `Renews in ${renewal.monthsLeft} month${renewal.monthsLeft === 1 ? "" : "s"}`}
+                    {" · "}{renewal.date.toLocaleDateString("en-CA", { month: "short", year: "numeric" })}
+                  </span>
+                </div>
+                <p className="mt-3 text-sm text-gray-600">
+                  Your <b>{primary.loan_type ?? "mortgage"}</b>{primary.lender ? <> with <b>{primary.lender}</b></> : null} renews{" "}
+                  <b>{renewal.date.toLocaleDateString("en-CA", { month: "long", year: "numeric" })}</b>. Lenders send their offer
+                  4–6 months early — but their first offer is rarely their best.
+                </p>
+                <div className="mt-4 grid grid-cols-2 gap-3">
+                  <div className="rounded-xl border border-line p-3">
+                    <p className="text-xs font-bold uppercase tracking-wide text-gray-400">Payment today</p>
+                    <p className="tabular mt-0.5 text-2xl font-extrabold">{cad(renewal.payNow)}<span className="text-xs font-bold text-gray-400">/mo</span></p>
+                    <p className="text-xs text-gray-400">at your {primary.rate.toFixed(2)}%</p>
+                  </div>
+                  <div className="rounded-xl border border-line p-3">
+                    <p className="text-xs font-bold uppercase tracking-wide text-gray-400">Best posted rate</p>
+                    <p className="tabular mt-0.5 text-2xl font-extrabold text-teal">{cad(renewal.payBest)}<span className="text-xs font-bold text-gray-400">/mo</span></p>
+                    <p className="text-xs text-gray-400">at {renewal.best.rate.toFixed(2)}% · {renewal.best.label}</p>
+                  </div>
+                </div>
+                <p className={`mt-3 text-sm font-bold ${renewal.saves >= 1 ? "text-emerald-600" : "text-amber-600"}`}>
+                  {renewal.saves >= 1
+                    ? `≈ ${cad(renewal.saves)}/mo less at today's best posted rate`
+                    : "Rates are higher now — locking early could protect you."}
+                </p>
+                {renewalSent ? (
+                  <div className="mt-4 rounded-xl bg-teal-soft p-3 text-center">
+                    <p className="text-sm font-extrabold text-teal-deep">Message sent ✓</p>
+                    <p className="mt-0.5 text-[12px] text-teal-deep/80">
+                      {demo ? "In your real hub this alerts your advisor instantly." : "Your advisor will reach out with a renewal game plan."}
+                    </p>
+                  </div>
+                ) : (
+                  <button
+                    className="btn btn-primary btn-md mt-4 w-full sm:w-auto"
+                    onClick={async () => { await createLead("loan", "Renewal coming up — wants a renewal strategy"); setRenewalSent(true); }}
+                  >
+                    Plan my renewal
+                  </button>
+                )}
+              </Card>
+            </section>
+          )}
+
           {/* PAYMENT BREAKDOWN */}
           {primary && breakdown && (
             <section>

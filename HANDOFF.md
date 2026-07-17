@@ -215,8 +215,23 @@ OPEN (build roadmap — agreed sequence):
   (functional update) so rapid multi-adds don't lose writes.
   supabase/functions/* source is versioned in-repo and EXCLUDED from
   tsconfig (Deno).
-- P1 still open: sold comps into pricing lab (sold_listings table is
-  EMPTY in july-platform — needs Han's sold-data import first).
+- **WAVE 3 SHIPPED 2026-07-17:** (1) RENEWAL RADAR — ho_mortgages.term_months
+  (default 60; demo 3-yr/36); Save Money page leads with a renewal card
+  (countdown pill amber ≤6mo, payment-at-today's-best-rate delta, "Plan my
+  renewal" → loan lead); pro Signals gets a Renewal Radar section (12-mo
+  window, soonest first, "Their lender calls 4–6 months out. Call first.")
+  + Active buyer cards; pro-store hubs now carry mortgages[] (single .in()
+  query; RLS pro-read confirmed). (2) UNIFIED CRM TIMELINE — pro/hubs cards
+  expand (accordion) into a per-hub relationship timeline: activities+leads
+  (matched by address-prefix, contact-name fallback for address-less lead
+  rows) + selling/buying milestones + listing-stage chip + "N events" hint.
+  (3) SOLD-COMPS PLUMBING — platform.ts fetchSoldComps() anon-reads
+  july-platform sold_listings; sell-page comps auto-switch to real solds w/
+  "Live · JULY" pill the day data lands (NOTE: when importing solds, also
+  add an anon SELECT policy on display-safe columns or the fetch stays
+  null); seeded fallback until then. (4) ho-emails v6 — monthly batch
+  refreshes stale (>25d) values through JULY Value (unit-aware) and writes
+  them back to ho_hubs before composing; returns {sent, refreshed}.
 - P1 also: JULY Search API into buyer playbook (saved/viewed/liked, tours),
   JULY Value gap badges, BuyerAiPro scan-from-hub (mint internal key via its
   scripts/make-api-key.mjs), inspection-scan → inventory graduation bridge.

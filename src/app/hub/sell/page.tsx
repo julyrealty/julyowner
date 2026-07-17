@@ -8,7 +8,7 @@ import {
 } from "lucide-react";
 import { useHub } from "@/lib/store";
 import { cad, compact, netProceeds, domEstimate, fmtDate } from "@/lib/calc";
-import { fetchCityMarket, type CityMarket } from "@/lib/platform";
+import { fetchCityMarket, fetchSoldComps, type CityMarket, type SoldComp } from "@/lib/platform";
 import { MARKET, IMPROVEMENTS, SELLER_TASKS } from "@/lib/demo";
 import { Card, SectionLabel, Avatar, Progress } from "@/components/ui";
 
@@ -48,12 +48,24 @@ export default function SellPage() {
   /* live market pulse — latest snapshot rows straight from JULY Search's DB.
      null (fetch failed / no data) simply hides the strip; nothing else changes. */
   const [market, setMarket] = useState<CityMarket[] | null>(null);
+  const [solds, setSolds] = useState<SoldComp[] | null>(null);
   const marketCity = hub?.city || "Vancouver";
   useEffect(() => {
     let cancelled = false;
     fetchCityMarket(marketCity).then((rows) => { if (!cancelled) setMarket(rows); });
+    // Real solds replace the seeded comps automatically once JULY's sold DB has data.
+    fetchSoldComps(marketCity).then((rows) => { if (!cancelled) setSolds(rows); });
     return () => { cancelled = true; };
   }, [marketCity]);
+
+  const comps = solds?.length
+    ? solds.map((s) => ({
+        address: `${s.unit_number ? `${s.unit_number}-` : ""}${s.address}`,
+        price: s.sold_price ?? 0,
+        date: s.sold_date ?? "",
+      }))
+    : MARKET.recentSales;
+  const compsLive = !!solds?.length;
 
   /* activation */
   const [targetMonth, setTargetMonth] = useState("");
@@ -312,9 +324,12 @@ export default function SellPage() {
               </p>
 
               <div className="mt-5 border-t border-line pt-4">
-                <p className="text-xs font-bold uppercase tracking-wide text-gray-400">Recent sales near you</p>
+                <p className="flex items-center gap-2 text-xs font-bold uppercase tracking-wide text-gray-400">
+                  Recent sales near you
+                  {compsLive && <span className="rounded-full bg-teal-soft px-2 py-0.5 text-[10px] font-extrabold tracking-normal text-teal-deep">Live · JULY</span>}
+                </p>
                 <ul className="mt-2 space-y-2">
-                  {MARKET.recentSales.slice(0, 4).map((s) => {
+                  {comps.slice(0, 4).map((s) => {
                     const delta = listPrice - s.price;
                     return (
                       <li key={s.address} className="flex items-center justify-between gap-2 text-sm">
@@ -324,7 +339,7 @@ export default function SellPage() {
                           <span className={`tabular rounded-full px-2 py-0.5 text-[11px] font-bold ${delta >= 0 ? "bg-teal-soft text-teal-deep" : "bg-amber-100 text-amber-700"}`}>
                             {delta >= 0 ? "+" : "−"}{compact(Math.abs(delta))} vs yours
                           </span>
-                          <span className="hidden text-xs text-gray-400 sm:inline">{fmtDate(s.date)}</span>
+                          {s.date && <span className="hidden text-xs text-gray-400 sm:inline">{fmtDate(s.date)}</span>}
                         </span>
                       </li>
                     );

@@ -18,6 +18,31 @@ export type CityMarket = {
   avg_ppsf: number | null;
 };
 
+export type SoldComp = {
+  address: string; unit_number: string | null; city: string | null;
+  sold_price: number | null; sold_date: string | null; list_price: number | null;
+  days_on_market: number | null; property_type: string | null; bedrooms: number | null;
+};
+
+/** Recent solds for a city. Returns null while july-platform's sold_listings is
+ *  empty or anon-blocked — callers keep their seeded fallback and this lights
+ *  up automatically the day Han's sold-data import (+ anon read policy) lands. */
+export async function fetchSoldComps(city: string, limit = 6): Promise<SoldComp[] | null> {
+  if (!city?.trim()) return null;
+  try {
+    const url = `${PLATFORM_URL}/rest/v1/sold_listings` +
+      `?select=address,unit_number,city,sold_price,sold_date,list_price,days_on_market,property_type,bedrooms` +
+      `&city=eq.${encodeURIComponent(city.trim())}&sold_price=not.is.null` +
+      `&order=sold_date.desc&limit=${limit}`;
+    const res = await fetch(url, { headers: { apikey: PLATFORM_KEY } });
+    if (!res.ok) return null;
+    const rows = (await res.json()) as SoldComp[];
+    return Array.isArray(rows) && rows.length > 0 ? rows : null;
+  } catch {
+    return null;
+  }
+}
+
 /** Latest market snapshot rows (one per property_class) for a city; null on any failure. */
 export async function fetchCityMarket(city: string): Promise<CityMarket[] | null> {
   if (!city?.trim()) return null;

@@ -14,12 +14,17 @@ export type ProAdvisor = {
   id: string; first_name: string; last_name: string; advisor_type: string;
   email?: string | null; phone?: string | null; is_default: boolean; company?: string | null;
 };
+export type ProHubMortgage = {
+  lender: string | null; loan_type: string | null; rate: number;
+  balance: number; start_date: string; term_months?: number;
+};
 export type ProHubRow = {
   id: string; address: string; contact: string; updated: string;
   journey?: "buying" | "owning" | "selling" | "sold";
   selling_started_at?: string | null;
   listing_status?: "preparing" | "listed" | "offers" | "sold" | null;
   buying_started_at?: string | null;
+  mortgages?: ProHubMortgage[];
 };
 export type ProActivity = { id: string; hub: string; member: string; action: string; detail: string | null; when: string };
 export type ProState = {
@@ -61,8 +66,14 @@ export function ProProvider({ children, demo }: { children: React.ReactNode; dem
           advisors: saved.advisors ?? [{ ...DEMO_ADVISOR, is_default: true } as ProAdvisor],
           hubs: [
             // Dana clicked "Sell My Home" on Jul 10, then kicked off her selling plan — the live one.
-            { id: "h1", address: DEMO_HUB.full_address, contact: "Dana Whitfield", updated: "2 hours ago", journey: "selling", listing_status: "preparing", selling_started_at: "2026-07-13T16:45:00Z" },
-            { id: "h2", address: "1444 W 8th Ave #302, Vancouver, BC", contact: "Sam Okafor", updated: "2 days ago", journey: "owning", buying_started_at: "2026-07-15T18:20:00Z" },
+            {
+              id: "h1", address: DEMO_HUB.full_address, contact: "Dana Whitfield", updated: "2 hours ago", journey: "selling", listing_status: "preparing", selling_started_at: "2026-07-13T16:45:00Z",
+              mortgages: [{ lender: "Coast Pacific Credit Union", loan_type: "3-Year Fixed", rate: 4.24, balance: 713800, start_date: "2024-03-01", term_months: 36 }],
+            },
+            {
+              id: "h2", address: "1444 W 8th Ave #302, Vancouver, BC", contact: "Sam Okafor", updated: "2 days ago", journey: "owning", buying_started_at: "2026-07-15T18:20:00Z",
+              mortgages: [{ lender: "Westbrook Financial", loan_type: "5-Year Fixed", rate: 5.34, balance: 428000, start_date: "2022-01-01", term_months: 60 }],
+            },
           ],
           recommended: saved.recommended ?? PROVIDERS.filter((p) => p.recommended).map((p) => p.id),
           activities: DEMO_ACTIVITIES as unknown as ProActivity[],
@@ -83,6 +94,29 @@ export function ProProvider({ children, demo }: { children: React.ReactNode; dem
         supa.from("ho_activities").select("id,action,detail,member_email,created_at,ho_hubs!inner(address1,pro_id)").eq("ho_hubs.pro_id", uidv).order("created_at", { ascending: false }).limit(25),
         supa.from("ho_leads").select("*").eq("pro_id", uidv).order("created_at", { ascending: false }).limit(10),
       ]);
+      // Renewal radar fuel: every sponsored hub's mortgages in one query (RLS lets the pro read them).
+      const hubIds = ((hubs as unknown[]) || []).map((h) => String((h as Record<string, unknown>).id));
+      const mtgByHub = new Map<string, ProHubMortgage[]>();
+      if (hubIds.length > 0) {
+        const { data: mtgs } = await supa
+          .from("ho_mortgages")
+          .select("hub_id,lender,loan_type,rate,balance,start_date,term_months")
+          .in("hub_id", hubIds);
+        for (const row of (mtgs as unknown[]) || []) {
+          const r = row as Record<string, unknown>;
+          const hid = String(r.hub_id);
+          const list = mtgByHub.get(hid) ?? [];
+          list.push({
+            lender: (r.lender as string | null) ?? null,
+            loan_type: (r.loan_type as string | null) ?? null,
+            rate: Number(r.rate ?? 0),
+            balance: Number(r.balance ?? 0),
+            start_date: String(r.start_date ?? ""),
+            term_months: r.term_months == null ? undefined : Number(r.term_months),
+          });
+          mtgByHub.set(hid, list);
+        }
+      }
       if (!alive) return;
       setS({
         loading: false, demo: false, session: true,
@@ -102,6 +136,7 @@ export function ProProvider({ children, demo }: { children: React.ReactNode; dem
             selling_started_at: (hh.selling_started_at as string | null) ?? null,
             listing_status: (hh.listing_status as ProHubRow["listing_status"]) ?? null,
             buying_started_at: (hh.buying_started_at as string | null) ?? null,
+            mortgages: mtgByHub.get(String(hh.id)) ?? [],
           };
         }),
         recommended: ((recs as { provider_id: string }[]) || []).map((r) => r.provider_id),
