@@ -28,6 +28,10 @@ export type Message = {
   id: string; sender_role: "homeowner" | "professional" | "system";
   sender_name: string | null; body: string; created_at: string;
 };
+export type RentalEntry = {
+  id: string; kind: "income" | "expense"; amount: number;
+  note: string | null; entry_date: string;
+};
 export type Hub = {
   id: string; address1: string; unit?: string | null; city: string | null; region: string | null; postal: string | null;
   full_address: string | null; purchase_price: number | null; purchase_date: string | null;
@@ -80,6 +84,7 @@ type HubState = {
   advisor: Advisor | null;
   buyer: { loaded: boolean; linked: boolean; watched: BuyerWatched[]; searches: BuyerSearch[]; tours: BuyerTour[] };
   messages: Message[];
+  rentalEntries: RentalEntry[];
 };
 
 type HubActions = {
@@ -100,6 +105,8 @@ type HubActions = {
   stopBuying: () => Promise<void>;
   loadBuyer: () => Promise<void>;
   sendMessage: (body: string) => Promise<void>;
+  addRentalEntry: (e: { kind: "income" | "expense"; amount: number; note?: string; entry_date?: string }) => Promise<void>;
+  removeRentalEntry: (id: string) => Promise<void>;
   createLead: (kind: "sell" | "loan" | "service" | "general" | "valuation", message: string) => Promise<void>;
   logActivity: (action: string, detail?: string) => void;
   signOut: () => Promise<void>;
@@ -127,7 +134,7 @@ function riskFor(itemType: string, age: number | null): number {
   return Math.max(0, Math.min(10, Math.round((age / mid) * 10 * 10) / 10));
 }
 
-function demoSeed(): Pick<HubState, "hub" | "mortgages" | "inventory" | "tasks" | "docs" | "messages"> {
+function demoSeed(): Pick<HubState, "hub" | "mortgages" | "inventory" | "tasks" | "docs" | "messages" | "rentalEntries"> {
   const furnace: InventoryItem = {
     id: "inv-furnace", area: "Systems", item_type: "Heating", brand: "Carrier",
     age_years: 9, typical_life: "15–25 years", failure_risk: 4.5,
@@ -156,6 +163,7 @@ function demoSeed(): Pick<HubState, "hub" | "mortgages" | "inventory" | "tasks" 
       { id: "d3", folder: "Property Files", name: "sellers_disclosure_2016.pdf", size_bytes: 1204551, tags: ["purchase"], created_at: "2026-04-18" },
     ],
     messages: DEMO_MESSAGES.map((m) => ({ ...m })),
+    rentalEntries: [],
   };
 }
 
@@ -164,7 +172,7 @@ export function HubProvider({ children, demo }: { children: React.ReactNode; dem
     loading: true, demo, session: false, profile: null, hub: null,
     mortgages: [], inventory: [], tasks: [], docs: [], pro: null, advisor: null,
     buyer: { loaded: false, linked: false, watched: [], searches: [], tours: [] },
-    messages: [],
+    messages: [], rentalEntries: [],
   });
 
   /* ---------- load ---------- */
@@ -194,15 +202,16 @@ export function HubProvider({ children, demo }: { children: React.ReactNode; dem
         supa.from("ho_hub_members").select("hub_id").or(`user_id.eq.${uidv},email.eq.${session.user.email}`),
       ]);
       const hubId = memberships?.[0]?.hub_id;
-      let hub = null, mortgages: Mortgage[] = [], inventory: InventoryItem[] = [], tasks: Task[] = [], docs: Doc[] = [], pro = null, advisor = null, messages: Message[] = [];
+      let hub = null, mortgages: Mortgage[] = [], inventory: InventoryItem[] = [], tasks: Task[] = [], docs: Doc[] = [], pro = null, advisor = null, messages: Message[] = [], rentalEntries: RentalEntry[] = [];
       if (hubId) {
-        const [h, m, inv, tk, dc, mg] = await Promise.all([
+        const [h, m, inv, tk, dc, mg, re] = await Promise.all([
           supa.from("ho_hubs").select("*").eq("id", hubId).maybeSingle(),
           supa.from("ho_mortgages").select("*").eq("hub_id", hubId).order("is_primary", { ascending: false }),
           supa.from("ho_inventory_items").select("*").eq("hub_id", hubId),
           supa.from("ho_tasks").select("*").eq("hub_id", hubId).order("due_date"),
           supa.from("ho_documents").select("*").eq("hub_id", hubId).order("created_at", { ascending: false }),
           supa.from("ho_messages").select("id,sender_role,sender_name,body,created_at").eq("hub_id", hubId).order("created_at").limit(200),
+          supa.from("ho_rental_entries").select("id,kind,amount,note,entry_date").eq("hub_id", hubId).order("entry_date", { ascending: false }).limit(300),
         ]);
         hub = h.data;
         mortgages = (m.data as Mortgage[]) || [];
@@ -210,6 +219,7 @@ export function HubProvider({ children, demo }: { children: React.ReactNode; dem
         tasks = (tk.data as Task[]) || [];
         docs = (dc.data as Doc[]) || [];
         messages = (mg.data as Message[]) || [];
+        rentalEntries = (re.data as RentalEntry[]) || [];
         if (hub?.pro_id) {
           const { data: p } = await supa.from("ho_profiles").select("*").eq("id", hub.pro_id).maybeSingle();
           pro = p;
@@ -220,7 +230,7 @@ export function HubProvider({ children, demo }: { children: React.ReactNode; dem
       if (!alive) return;
       setState({
         loading: false, demo: false, session: true,
-        profile: profile as Profile, hub, mortgages, inventory, tasks, docs, messages,
+        profile: profile as Profile, hub, mortgages, inventory, tasks, docs, messages, rentalEntries,
         pro: pro as Profile | null, advisor: advisor as Advisor | null,
         buyer: { loaded: false, linked: false, watched: [], searches: [], tours: [] },
       });
@@ -261,7 +271,7 @@ export function HubProvider({ children, demo }: { children: React.ReactNode; dem
       try {
         localStorage.setItem(LS_KEY, JSON.stringify({
           hub: merged.hub, mortgages: merged.mortgages, inventory: merged.inventory,
-          tasks: merged.tasks, docs: merged.docs, messages: merged.messages,
+          tasks: merged.tasks, docs: merged.docs, messages: merged.messages, rentalEntries: merged.rentalEntries,
         }));
       } catch {}
       return merged;
@@ -276,7 +286,7 @@ export function HubProvider({ children, demo }: { children: React.ReactNode; dem
       try {
         localStorage.setItem(LS_KEY, JSON.stringify({
           hub: merged.hub, mortgages: merged.mortgages, inventory: merged.inventory,
-          tasks: merged.tasks, docs: merged.docs, messages: merged.messages,
+          tasks: merged.tasks, docs: merged.docs, messages: merged.messages, rentalEntries: merged.rentalEntries,
         }));
       } catch {}
       return merged;
@@ -493,6 +503,29 @@ export function HubProvider({ children, demo }: { children: React.ReactNode; dem
         .select("id,sender_role,sender_name,body,created_at").single();
       setState((s) => ({ ...s, messages: [...s.messages, (data as Message) || msg] }));
       actions.logActivity("Sent a message", msg.body.slice(0, 120));
+    },
+    async addRentalEntry(e) {
+      if (!state.hub || !(e.amount > 0)) return;
+      const entry: RentalEntry = {
+        id: uid(), kind: e.kind, amount: Math.round(e.amount * 100) / 100,
+        note: e.note?.trim() || null, entry_date: e.entry_date || new Date().toISOString().slice(0, 10),
+      };
+      if (state.demo) {
+        persistDemoFn((s) => ({ rentalEntries: [entry, ...s.rentalEntries] }));
+        return;
+      }
+      const { data } = await sb().from("ho_rental_entries")
+        .insert({ ...entry, id: undefined, hub_id: state.hub.id })
+        .select("id,kind,amount,note,entry_date").single();
+      setState((s) => ({ ...s, rentalEntries: [(data as RentalEntry) || entry, ...s.rentalEntries] }));
+    },
+    async removeRentalEntry(id) {
+      if (state.demo) {
+        persistDemoFn((s) => ({ rentalEntries: s.rentalEntries.filter((x) => x.id !== id) }));
+        return;
+      }
+      await sb().from("ho_rental_entries").delete().eq("id", id);
+      setState((s) => ({ ...s, rentalEntries: s.rentalEntries.filter((x) => x.id !== id) }));
     },
     async createLead(kind, message) {
       if (!state.demo && state.hub) {

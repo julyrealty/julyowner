@@ -15,7 +15,10 @@ const ICONS: Record<string, React.ComponentType<{ size?: number; className?: str
 };
 
 export default function BuildWealth() {
-  const { hub, mortgages, updateHub, logActivity } = useHub();
+  const { hub, mortgages, updateHub, logActivity, rentalEntries, addRentalEntry, removeRentalEntry } = useHub();
+  const [ledgerKind, setLedgerKind] = useState<"income" | "expense">("income");
+  const [ledgerAmt, setLedgerAmt] = useState("");
+  const [ledgerNote, setLedgerNote] = useState("");
   const params = useSearchParams();
   const q = params.get("demo") === "1" ? "?demo=1" : "";
   const [proj, setProj] = useState<Improvement | null>(null);
@@ -248,6 +251,66 @@ export default function BuildWealth() {
                       Renewal window: BC requires proper notice for rent increases and lease changes — talk it through before the clock runs out.
                     </p>
                   )}
+                  {/* RENT LEDGER */}
+                  {(() => {
+                    const year = new Date().getFullYear();
+                    const thisYear = rentalEntries.filter((e) => e.entry_date.startsWith(String(year)));
+                    const income = thisYear.filter((e) => e.kind === "income").reduce((s, e) => s + e.amount, 0);
+                    const expenses = thisYear.filter((e) => e.kind === "expense").reduce((s, e) => s + e.amount, 0);
+                    const net = income - expenses;
+                    return (
+                      <div className="mt-5 border-t border-line pt-4">
+                        <div className="flex flex-wrap items-center justify-between gap-2">
+                          <p className="text-sm font-extrabold">Rent ledger — {year}</p>
+                          <p className="text-[12px] font-semibold text-gray-500">
+                            <span className="text-emerald-600">{cad(income)}</span> in ·{" "}
+                            <span className="text-coral">{cad(expenses)}</span> out ·{" "}
+                            <b className={net >= 0 ? "text-emerald-600" : "text-coral"}>{net >= 0 ? "+" : "−"}{cad(Math.abs(net))} net</b>
+                          </p>
+                        </div>
+                        <div className="mt-2 flex flex-wrap items-center gap-2">
+                          <div className="flex overflow-hidden rounded-full ring-1 ring-line">
+                            {(["income", "expense"] as const).map((k) => (
+                              <button key={k} onClick={() => setLedgerKind(k)}
+                                className={`px-3 py-1.5 text-xs font-extrabold ${ledgerKind === k ? (k === "income" ? "bg-teal text-white" : "bg-coral text-white") : "bg-white text-gray-500"}`}>
+                                {k === "income" ? "Rent in" : "Expense"}
+                              </button>
+                            ))}
+                          </div>
+                          <input className="input h-9 w-28" inputMode="decimal" placeholder="$"
+                            value={ledgerAmt} onChange={(e) => setLedgerAmt(e.target.value)} />
+                          <input className="input h-9 min-w-0 flex-1" placeholder={ledgerKind === "income" ? "e.g. July rent" : "e.g. Plumber visit"}
+                            value={ledgerNote} onChange={(e) => setLedgerNote(e.target.value)} />
+                          <button className="btn btn-primary btn-sm shrink-0" disabled={!(Number(ledgerAmt) > 0)}
+                            onClick={async () => {
+                              await addRentalEntry({ kind: ledgerKind, amount: Number(ledgerAmt), note: ledgerNote });
+                              setLedgerAmt(""); setLedgerNote("");
+                              logActivity("Logged a rental " + ledgerKind);
+                            }}>
+                            Add
+                          </button>
+                        </div>
+                        {rentalEntries.length > 0 && (
+                          <ul className="mt-3 max-h-44 space-y-1 overflow-y-auto pr-1">
+                            {rentalEntries.slice(0, 24).map((e) => (
+                              <li key={e.id} className="flex min-w-0 items-center gap-2 text-[13px]">
+                                <span className={`h-1.5 w-1.5 shrink-0 rounded-full ${e.kind === "income" ? "bg-emerald-500" : "bg-coral"}`} />
+                                <span className="tabular shrink-0 font-bold">{e.kind === "income" ? "+" : "−"}{cad(e.amount)}</span>
+                                <span className="min-w-0 flex-1 truncate text-gray-500">{e.note ?? (e.kind === "income" ? "Rent" : "Expense")}</span>
+                                <span className="shrink-0 text-[11px] text-gray-400">{e.entry_date.slice(5)}</span>
+                                <button className="shrink-0 text-[11px] font-bold text-gray-300 hover:text-coral" aria-label="Delete entry"
+                                  onClick={() => removeRentalEntry(e.id)}>✕</button>
+                              </li>
+                            ))}
+                          </ul>
+                        )}
+                        <p className="mt-2 text-[11px] text-gray-400">
+                          Tax time: {year} totals above are what your accountant asks for first. Records only — not tax advice.
+                        </p>
+                      </div>
+                    );
+                  })()}
+
                   <div className="mt-3 flex flex-wrap items-center justify-between gap-2">
                     <button className="text-[11px] font-bold text-gray-400 underline"
                       onClick={() => { updateHub({ is_rental: false }); logActivity("Turned off landlord mode"); }}>

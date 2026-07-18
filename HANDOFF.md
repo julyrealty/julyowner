@@ -265,6 +265,18 @@ OPEN (build roadmap — agreed sequence):
   pattern: key-auth'd envelope create/status) or shares the repo.
 - P3: JULY Lend at pre-approval/renewal (renewal radar from stored
   mortgages), Draft+Sign at offer/listing, Insure at subject removal.
+- **INVESTOR SLICE 3 (RENT LEDGER) SHIPPED wave 9:** ho_rental_entries
+  UI inside the landlord card — quick-add row (Rent in / Expense toggle,
+  amount, note, today's date), YTD strip (in / out / net), recent-entries
+  list w/ delete, tax-time line. Store: rentalEntries slice (demo
+  persists; live CRUD on ho_rental_entries). Pro-side ledger visibility
+  DELIBERATELY OMITTED — a homeowner's income/expense detail is private
+  financial data; the pro sees lease dates + rent via LEASE RENEWALS,
+  which is the actionable part. ALSO this session: bridge SQL RUN on
+  july-platform via Han's dashboard (linked:true verified w/ real
+  watched homes); site_url → https://owner.july.ca (domain live);
+  GitHub remote origin = github.com/julyrealty/julyowner (push blocked
+  for the agent — Han runs `git push -u origin master`).
 - **INVESTOR SLICE 2 (LANDLORD MODE) SHIPPED wave 8:** ho_hubs gains
   is_rental/monthly_rent/lease_start/lease_end/tenant_name +
   ho_rental_entries table (income/expense ledger, RLS member-write /
