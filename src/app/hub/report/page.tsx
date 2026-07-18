@@ -47,7 +47,7 @@ function marketBits(r: CityMarket): string[] {
 }
 
 export default function AnnualReport() {
-  const { hub, mortgages, tasks, docs, inventory, pro, advisor } = useHub();
+  const { hub, mortgages, tasks, docs, inventory, pro, advisor, rentalEntries } = useHub();
   const params = useSearchParams();
   const q = params.get("demo") === "1" ? "?demo=1" : "";
 
@@ -261,6 +261,38 @@ export default function AnnualReport() {
               <span>A documented home is a confident sale — buyers pay for provenance.</span>
             </p>
           </section>
+
+          {/* 4b · RENTAL PERFORMANCE — landlord hubs only */}
+          {hub?.is_rental && (() => {
+            const year = new Date().getFullYear();
+            const yearRows = rentalEntries.filter((e) => e.entry_date.startsWith(String(year)));
+            const rIn = yearRows.filter((e) => e.kind === "income").reduce((s, e) => s + e.amount, 0);
+            const rOut = yearRows.filter((e) => e.kind === "expense").reduce((s, e) => s + e.amount, 0);
+            const net = rIn - rOut;
+            return (
+              <section>
+                <SectionLabel>Rental performance — {year}</SectionLabel>
+                <div className="grid grid-cols-3 gap-3">
+                  <div className="card p-4 text-center">
+                    <p className="tabular text-xl font-extrabold text-emerald-600">{cad(rIn)}</p>
+                    <p className="mt-1 text-[11px] font-semibold text-gray-500">Rent collected</p>
+                  </div>
+                  <div className="card p-4 text-center">
+                    <p className="tabular text-xl font-extrabold text-coral">{cad(rOut)}</p>
+                    <p className="mt-1 text-[11px] font-semibold text-gray-500">Expenses</p>
+                  </div>
+                  <div className="card p-4 text-center">
+                    <p className={`tabular text-xl font-extrabold ${net >= 0 ? "text-emerald-600" : "text-coral"}`}>{net >= 0 ? "+" : "−"}{cad(Math.abs(net))}</p>
+                    <p className="mt-1 text-[11px] font-semibold text-gray-500">Net so far</p>
+                  </div>
+                </div>
+                <p className="mt-2 text-[11px] text-gray-400">
+                  {hub.monthly_rent ? `Current rent ${cad(Number(hub.monthly_rent))}/mo` : "Set your rent in Build Wealth → Landlord mode"}
+                  {hub.lease_end ? ` · lease ends ${fmtDate(hub.lease_end)}` : ""} · records only, not tax advice.
+                </p>
+              </section>
+            );
+          })()}
 
           {/* 5 · WATCH LIST */}
           <section>
