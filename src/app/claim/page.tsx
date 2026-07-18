@@ -22,6 +22,7 @@ function ClaimInner() {
   const [step, setStep] = useState<"address" | "account" | "check-email">(isBuyer ? "account" : "address");
   const [addr, setAddr] = useState<Payload>({ unit: "", address1: "", city: "Vancouver", region: "BC", postal: "" });
   const [form, setForm] = useState({ first: "", last: "", email: "", password: "" });
+  const [compCode, setCompCode] = useState("");
   const [err, setErr] = useState("");
   const [busy, setBusy] = useState(false);
   const [dupWarn, setDupWarn] = useState(false);
@@ -59,6 +60,9 @@ function ClaimInner() {
       });
       if (error) throw error;
       // Stash the claim so we can finish it after email confirmation / first session.
+      if (isPro && compCode.trim()) {
+        localStorage.setItem("julyowner-pending-code", compCode.trim().toUpperCase());
+      }
       if (!isPro) {
         const pendingClaim = isBuyer
           ? { unit: "", address1: "Home search HQ", city: "Vancouver", region: "BC", postal: "", invite: inviteToken, pro: proRef, journey: "buying" }
@@ -169,6 +173,11 @@ function ClaimInner() {
                 <Field label="Password" hint="8+ characters.">
                   <input className="input" type="password" value={form.password} onChange={(e) => setForm({ ...form, password: e.target.value })} />
                 </Field>
+                {isPro && (
+                  <Field label="Brokerage or partner code" hint="Optional — activates your package at no charge.">
+                    <input className="input uppercase" placeholder="e.g. JULY55" value={compCode} onChange={(e) => setCompCode(e.target.value)} />
+                  </Field>
+                )}
                 {err && <p className="rounded-lg bg-red-50 px-3 py-2 text-sm font-medium text-red-600">{err}</p>}
                 <button className="btn btn-coral btn-lg w-full" disabled={busy || !form.email || form.password.length < 8 || !form.first}
                   onClick={submit}>

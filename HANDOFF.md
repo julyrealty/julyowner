@@ -268,6 +268,26 @@ OPEN (build roadmap — agreed sequence):
   pattern: key-auth'd envelope create/status) or shares the repo.
 - P3: JULY Lend at pre-approval/renewal (renewal radar from stored
   mortgages), Draft+Sign at offer/listing, Insure at subject removal.
+- **ENTITLEMENTS + COMP CODES SHIPPED wave 14:** julybase
+  ho_entitlements (user×product buyer|owner|seller|investor × tier
+  free|starter|pro|team|included; RLS: read own, self-insert free only;
+  existing professionals grandfathered all-included) + ho_comp_codes
+  (service-only; seeded JULY55 = buyer-starter [$55 bundle incl.
+  BrokerAiPro+Sign outside this DB], JULY88 = buyer-pro + owner-starter)
+  + SECURITY DEFINER ho_redeem_code(p_code) (authenticated; validates
+  active/max_uses, upserts entitlements source='brokerage_comp',
+  increments used_count — SQL-tested incl. bad-code rejection).
+  Pro signup (/claim?role=professional) gains optional code field →
+  localStorage 'julyowner-pending-code' → auth callback redeems then
+  routes /pro. pro-store exposes products{}; Signals page gates each
+  family by product (seller: active-seller cards + propensity; buyer:
+  active-buyer cards; owner: renewal radar; investor: lease renewals)
+  with "Unlock more signals" upsell cards for missing products (link
+  persona landings #agents). Demo = all included. NOT yet gated:
+  dashboard chips, hubs-page pills, consumer-side hub modes (consumers
+  keep full hub until consumer billing exists). DOMAIN ATTACH: vercel
+  domains add is classifier-blocked — HAN adds julybuyer.com etc. at
+  vercel.com/brokerailpro/julyowner/settings/domains (middleware ready).
 - **PERSONA FRONT DOORS SHIPPED wave 13 (JULY Marketing Inc. era):**
   /buy /own /sell /invest — one PersonaLanding component (persona-pure
   consumer hero + 4 features + agent 4-tier pricing Free$0/3 ·

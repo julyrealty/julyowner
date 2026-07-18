@@ -1,7 +1,7 @@
 "use client";
 import { useState } from "react";
 import Link from "next/link";
-import { usePro } from "@/lib/pro-store";
+import { usePro, type ProductKey } from "@/lib/pro-store";
 import { relTime, monthsBetween } from "@/lib/calc";
 import { Card, Pill, Avatar, SectionLabel } from "@/components/ui";
 import { Star, Flame, Search, CalendarClock } from "lucide-react";
@@ -20,17 +20,27 @@ function monthsUntil(target: Date, from = new Date()): number {
   return months;
 }
 
+const LOCKED_META: { key: ProductKey; title: string; line: string; href: string }[] = [
+  { key: "buyer", title: "Buyer signals", line: "Know the moment a client starts their home search.", href: "/buy#agents" },
+  { key: "owner", title: "Renewal radar", line: "Every mortgage renewal in your book, a year out.", href: "/own#agents" },
+  { key: "seller", title: "Seller signals", line: "Live seller activations plus propensity scores.", href: "/sell#agents" },
+  { key: "investor", title: "Lease renewals", line: "Landlord clients' lease deadlines, before they hit.", href: "/invest#agents" },
+];
+
 export default function ProOpportunities() {
-  const { contacts, activities, hubs, demo } = usePro();
+  const { contacts, activities, hubs, demo, products } = usePro();
   const [onlyLikely, setOnlyLikely] = useState(false);
   const q = demo ? "?demo=1" : "";
+  const has = (p: ProductKey) => !!products[p];
+  const locked = LOCKED_META.filter((m) => !has(m.key));
 
   // Homeowners who have actually flipped their hub into selling or buying mode — live, not predicted.
-  const sellers = hubs.filter((h) => h.journey === "selling");
-  const buyers = hubs.filter((h) => !!h.buying_started_at && h.journey !== "selling" && h.journey !== "sold");
+  // Each signal family only renders for professionals entitled to that product.
+  const sellers = has("seller") ? hubs.filter((h) => h.journey === "selling") : [];
+  const buyers = has("buyer") ? hubs.filter((h) => !!h.buying_started_at && h.journey !== "selling" && h.journey !== "sold") : [];
   const liveNames = new Set([...sellers, ...buyers].map((h) => h.contact));
 
-  const scored = contacts
+  const scored = (has("seller") ? contacts : [])
     .filter((c) => typeof c.propensity === "number")
     .filter((c) => !liveNames.has(`${c.first_name} ${c.last_name}`)) // already live above — no score needed
     .sort((a, b) => (b.propensity ?? 0) - (a.propensity ?? 0))
@@ -118,7 +128,7 @@ export default function ProOpportunities() {
         </Card>
       )}
 
-      {radar.length > 0 && (
+      {has("owner") && radar.length > 0 && (
         <div className="mt-6">
           <SectionLabel>Renewal radar</SectionLabel>
           <div className="space-y-2">
@@ -147,7 +157,7 @@ export default function ProOpportunities() {
       )}
 
       {/* LEASE RENEWALS — landlord hubs with leases ending inside 120 days */}
-      {(() => {
+      {has("investor") && (() => {
         const now = Date.now();
         const leases = hubs
           .filter((h) => h.is_rental && h.lease_end)
@@ -211,6 +221,21 @@ export default function ProOpportunities() {
           </Card>
         )}
       </div>
+
+      {locked.length > 0 && (
+        <div className="mt-8">
+          <SectionLabel>Unlock more signals</SectionLabel>
+          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+            {locked.map((m) => (
+              <Card key={m.key} className="p-4">
+                <p className="text-sm font-extrabold">{m.title}</p>
+                <p className="mt-1 text-[12px] leading-relaxed text-gray-500">{m.line}</p>
+                <Link href={m.href} className="btn btn-ghost btn-sm mt-3">From $29/mo</Link>
+              </Card>
+            ))}
+          </div>
+        </div>
+      )}
 
       <p className="mt-6 text-center text-[11px] text-gray-400">
         Scores are directional estimates from engagement and property factors — a reason to call, not a promise.

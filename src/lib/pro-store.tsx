@@ -28,6 +28,7 @@ export type ProHubRow = {
   is_rental?: boolean; monthly_rent?: number | null; lease_end?: string | null;
 };
 export type ProActivity = { id: string; hub: string; member: string; action: string; detail: string | null; when: string };
+export type ProductKey = "buyer" | "owner" | "seller" | "investor";
 export type ProState = {
   loading: boolean; demo: boolean; session: boolean;
   profile: typeof DEMO_PRO | null;
@@ -37,6 +38,7 @@ export type ProState = {
   recommended: string[]; // provider ids
   activities: ProActivity[];
   shareLink: string;
+  products: Partial<Record<ProductKey, string>>; // product -> tier; absent = locked
   addContact: (c: { first_name: string; last_name: string; email: string }) => Promise<void>;
   inviteContact: (id: string) => Promise<string>; // returns invite link
   addAdvisor: (a: Omit<ProAdvisor, "id" | "is_default"> & { is_default?: boolean }) => Promise<void>;
@@ -52,6 +54,7 @@ export function ProProvider({ children, demo }: { children: React.ReactNode; dem
   const [s, setS] = useState<Omit<ProState, "addContact" | "inviteContact" | "addAdvisor" | "setDefaultAdvisor" | "toggleRecommend" | "updateProfile">>({
     loading: true, demo, session: false, profile: null,
     contacts: [], advisors: [], hubs: [], recommended: [], activities: [], shareLink: "",
+    products: {},
   });
 
   useEffect(() => {
@@ -80,6 +83,7 @@ export function ProProvider({ children, demo }: { children: React.ReactNode; dem
           recommended: saved.recommended ?? PROVIDERS.filter((p) => p.recommended).map((p) => p.id),
           activities: DEMO_ACTIVITIES as unknown as ProActivity[],
           shareLink: `${window.location.origin}/claim`,
+          products: { buyer: "included", owner: "included", seller: "included", investor: "included" },
         });
         return;
       }
@@ -96,6 +100,10 @@ export function ProProvider({ children, demo }: { children: React.ReactNode; dem
         supa.from("ho_activities").select("id,action,detail,member_email,created_at,ho_hubs!inner(address1,pro_id)").eq("ho_hubs.pro_id", uidv).order("created_at", { ascending: false }).limit(25),
         supa.from("ho_leads").select("*").eq("pro_id", uidv).order("created_at", { ascending: false }).limit(10),
       ]);
+      const { data: ents } = await supa.from("ho_entitlements")
+        .select("product,tier").eq("user_id", uidv).eq("status", "active");
+      const products: Partial<Record<ProductKey, string>> = {};
+      for (const e of (ents ?? []) as { product: ProductKey; tier: string }[]) products[e.product] = e.tier;
       // Renewal radar fuel: every sponsored hub's mortgages in one query (RLS lets the pro read them).
       const hubIds = ((hubs as unknown[]) || []).map((h) => String((h as Record<string, unknown>).id));
       const mtgByHub = new Map<string, ProHubMortgage[]>();
@@ -157,6 +165,7 @@ export function ProProvider({ children, demo }: { children: React.ReactNode; dem
           })),
         ].sort((x, y) => y.when.localeCompare(x.when)).slice(0, 25),
         shareLink: `${window.location.origin}/claim?pro=${uidv}`,
+        products,
       });
     })();
     return () => { alive = false; };

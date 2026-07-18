@@ -24,7 +24,18 @@ export default function AuthCallback() {
       const { data: profile } = await supa.from("ho_profiles").select("*").eq("id", user.id).maybeSingle();
       const role = profile?.role ?? (user.user_metadata?.role as string) ?? "homeowner";
 
-      if (role === "professional") { window.location.replace("/pro"); return; }
+      if (role === "professional") {
+        // Brokerage/partner code stashed at signup → activate the bundle at $0.
+        let code = "";
+        try { code = localStorage.getItem("julyowner-pending-code") || ""; } catch {}
+        if (code) {
+          setMsg("Activating your package…");
+          try { await supa.rpc("ho_redeem_code", { p_code: code }); } catch { /* invalid code — portal still works */ }
+          try { localStorage.removeItem("julyowner-pending-code"); } catch {}
+        }
+        window.location.replace("/pro");
+        return;
+      }
 
       // Homeowner: does a hub already exist for them?
       const { data: memberships } = await supa
