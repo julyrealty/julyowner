@@ -125,11 +125,14 @@ from INSIDE the DB instead).
 
 1. `npx tsc --noEmit` then `npm run build` (both must be clean).
 2. Commit (git identity set locally: JULY Realty <julyrealtyhq@gmail.com>).
-3. `npx vercel deploy --prod --yes --scope team_xMVW4pLwZ1d6IizmpZE3yKPj`
-   from `web/`. NOTE: the permission classifier sometimes blocks deploys —
-   Han has granted standing authority; if blocked, hand him the command.
-4. Verify https://julyowner.vercel.app in the browser pane (landing, a hub
-   page, a pro page).
+3. **Push to GitHub = production deploy.** Since 2026-07-17 the Vercel
+   project is git-connected to github.com/julyrealty/julyowner (master =
+   production). `git push` triggers the deploy; the CLI fallback
+   `npx vercel deploy --prod --yes --scope team_xMVW4pLwZ1d6IizmpZE3yKPj`
+   still works. NOTE: the classifier sometimes blocks `git push`/deploys —
+   if blocked, hand Han the command.
+4. Verify https://owner.july.ca (branded prod domain; julyowner.vercel.app
+   also serves) in the browser pane — landing, a hub page, a pro page.
 Supabase changes go through MCP `apply_migration` (never raw prod DDL
 without it) and `get_advisors` security check after DDL.
 
