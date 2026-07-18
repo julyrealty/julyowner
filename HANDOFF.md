@@ -268,6 +268,26 @@ OPEN (build roadmap — agreed sequence):
   pattern: key-auth'd envelope create/status) or shares the repo.
 - P3: JULY Lend at pre-approval/renewal (renewal radar from stored
   mortgages), Draft+Sign at offer/listing, Insure at subject removal.
+- **PERSONA FRONT DOORS SHIPPED wave 13 (JULY Marketing Inc. era):**
+  /buy /own /sell /invest — one PersonaLanding component (persona-pure
+  consumer hero + 4 features + agent 4-tier pricing Free$0/3 ·
+  Starter$29/25 · Pro$59/100 · Team$119/500 clients + "Your clients are
+  yours" trust line + quiet join.july.ca recruiting line + "© JULY
+  Marketing Inc." footers). src/middleware.ts maps persona domains →
+  rewrites "/" (julybuyer.com, julyowner.com, julyseller.com,
+  julyinvestor.com, buy.july.ca, owneraipro/selleraipro/invest(or)aipro
+  .com; buyeraipro.com EXCLUDED — it's the standalone scan engine). Han
+  points DNS at this Vercel project per brand. BUYER SIGNUP:
+  /claim?persona=buyer skips the address step → ho_claim_hub(p_journey
+  'buying') creates a "Home search HQ" hub (journey=buying,
+  buying_started_at, NO addr_key/dup-check/fake value — SQL-tested:
+  owner path unchanged, two buyers don't dup-flag); callback routes
+  buyers to /hub/buying. Old 9-param ho_claim_hub overload DROPPED.
+  Entity: platform runs under JULY Marketing Inc. (brand licensed from
+  JULY Realty; persona footers updated — main landing/worth footers
+  still say JULY Realty, sweep next wave). NEXT: wave 14 entitlements
+  (user×product×tier gating hub + pro portal, all-on for JULY accounts)
+  + brokerage comp codes ($55/$88 packages); wave 15 Helcim checkout.
 - **PORTFOLIO SWITCHER SHIPPED wave 10:** store loads ALL of a member's
   hub memberships (was memberships[0] only); active hub = localStorage
   'julyowner-active-hub' (validated against membership, falls back to

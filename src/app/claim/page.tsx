@@ -17,7 +17,9 @@ function ClaimInner() {
   const isPro = params.get("role") === "professional";
   const inviteToken = params.get("invite");
   const proRef = params.get("pro");
-  const [step, setStep] = useState<"address" | "account" | "check-email">("address");
+  // Buyers have no home yet — they skip the address step and get a search HQ.
+  const isBuyer = params.get("persona") === "buyer" && !isPro;
+  const [step, setStep] = useState<"address" | "account" | "check-email">(isBuyer ? "account" : "address");
   const [addr, setAddr] = useState<Payload>({ unit: "", address1: "", city: "Vancouver", region: "BC", postal: "" });
   const [form, setForm] = useState({ first: "", last: "", email: "", password: "" });
   const [err, setErr] = useState("");
@@ -57,7 +59,12 @@ function ClaimInner() {
       });
       if (error) throw error;
       // Stash the claim so we can finish it after email confirmation / first session.
-      if (!isPro) localStorage.setItem("julyowner-pending-claim", JSON.stringify({ ...addr, invite: inviteToken, pro: proRef }));
+      if (!isPro) {
+        const pendingClaim = isBuyer
+          ? { unit: "", address1: "Home search HQ", city: "Vancouver", region: "BC", postal: "", invite: inviteToken, pro: proRef, journey: "buying" }
+          : { ...addr, invite: inviteToken, pro: proRef };
+        localStorage.setItem("julyowner-pending-claim", JSON.stringify(pendingClaim));
+      }
       if (data.session) {
         window.location.href = "/auth/callback";
         return;
@@ -165,9 +172,9 @@ function ClaimInner() {
                 {err && <p className="rounded-lg bg-red-50 px-3 py-2 text-sm font-medium text-red-600">{err}</p>}
                 <button className="btn btn-coral btn-lg w-full" disabled={busy || !form.email || form.password.length < 8 || !form.first}
                   onClick={submit}>
-                  {busy ? "Creating…" : isPro ? "Create my account" : "Claim my home"} <ArrowRight size={18} />
+                  {busy ? "Creating…" : isPro ? "Create my account" : isBuyer ? "Start my search HQ" : "Claim my home"} <ArrowRight size={18} />
                 </button>
-                {!isPro && (
+                {!isPro && !isBuyer && (
                   <button className="w-full text-center text-sm font-semibold text-gray-400 hover:text-gray-600" onClick={() => setStep("address")}>
                     ← Back to address
                   </button>

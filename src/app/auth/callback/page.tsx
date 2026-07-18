@@ -33,7 +33,7 @@ export default function AuthCallback() {
 
       if (!memberships || memberships.length === 0) {
         setMsg("Building your hub…");
-        let pending: { unit?: string; address1?: string; city?: string; region?: string; postal?: string; purchase_price?: string; purchase_date?: string; invite?: string | null; pro?: string | null } = {};
+        let pending: { unit?: string; address1?: string; city?: string; region?: string; postal?: string; purchase_price?: string; purchase_date?: string; invite?: string | null; pro?: string | null; journey?: string } = {};
         try { pending = JSON.parse(localStorage.getItem("julyowner-pending-claim") || "{}"); } catch {}
         const price = pending.purchase_price ? Number(String(pending.purchase_price).replace(/[^0-9.]/g, "")) || null : null;
         const year = pending.purchase_date ? Number(String(pending.purchase_date).slice(0, 4)) || null : null;
@@ -47,8 +47,10 @@ export default function AuthCallback() {
           p_invite_token: pending.invite || null,
           p_pro: pending.pro || null,
           p_unit: pending.unit || null,
+          p_journey: pending.journey === "buying" ? "buying" : "owning",
         });
         if (!error) localStorage.removeItem("julyowner-pending-claim");
+        if (!error && pending.journey === "buying") { window.location.replace("/hub/buying"); return; }
       }
       window.location.replace("/hub");
     })();
