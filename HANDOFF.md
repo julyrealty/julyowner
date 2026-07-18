@@ -265,6 +265,15 @@ OPEN (build roadmap — agreed sequence):
   pattern: key-auth'd envelope create/status) or shares the repo.
 - P3: JULY Lend at pre-approval/renewal (renewal radar from stored
   mortgages), Draft+Sign at offer/listing, Insure at subject removal.
+- **PORTFOLIO SWITCHER SHIPPED wave 10:** store loads ALL of a member's
+  hub memberships (was memberships[0] only); active hub = localStorage
+  'julyowner-active-hub' (validated against membership, falls back to
+  first); header shows a property <select> ONLY when >1 hub;
+  switchHub() persists choice + full reload (clean slate for buyer
+  sync / value refresh / messages). Demo unchanged (single hub, no
+  switcher — verified). Live multi-hub path is code-verified only —
+  first real exercise happens when someone claims a second hub via
+  /claim (ho_claim_hub already creates hub+membership per call).
 - **INVESTOR SLICE 3 (RENT LEDGER) SHIPPED wave 9:** ho_rental_entries
   UI inside the landlord card — quick-add row (Rent in / Expense toggle,
   amount, note, today's date), YTD strip (in / out / net), recent-entries

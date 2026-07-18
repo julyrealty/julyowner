@@ -85,6 +85,7 @@ type HubState = {
   buyer: { loaded: boolean; linked: boolean; watched: BuyerWatched[]; searches: BuyerSearch[]; tours: BuyerTour[] };
   messages: Message[];
   rentalEntries: RentalEntry[];
+  myHubs: { id: string; label: string }[];
 };
 
 type HubActions = {
@@ -107,6 +108,7 @@ type HubActions = {
   sendMessage: (body: string) => Promise<void>;
   addRentalEntry: (e: { kind: "income" | "expense"; amount: number; note?: string; entry_date?: string }) => Promise<void>;
   removeRentalEntry: (id: string) => Promise<void>;
+  switchHub: (hubId: string) => void;
   createLead: (kind: "sell" | "loan" | "service" | "general" | "valuation", message: string) => Promise<void>;
   logActivity: (action: string, detail?: string) => void;
   signOut: () => Promise<void>;
@@ -172,7 +174,7 @@ export function HubProvider({ children, demo }: { children: React.ReactNode; dem
     loading: true, demo, session: false, profile: null, hub: null,
     mortgages: [], inventory: [], tasks: [], docs: [], pro: null, advisor: null,
     buyer: { loaded: false, linked: false, watched: [], searches: [], tours: [] },
-    messages: [], rentalEntries: [],
+    messages: [], rentalEntries: [], myHubs: [],
   });
 
   /* ---------- load ---------- */
@@ -189,6 +191,7 @@ export function HubProvider({ children, demo }: { children: React.ReactNode; dem
           ...s, loading: false, demo: true, session: false,
           profile: { id: "demo-user", role: "homeowner", first_name: DEMO_HUB.owner_first, last_name: DEMO_HUB.owner_last, email: DEMO_HUB.owner_email },
           pro: DEMO_PRO, advisor: DEMO_ADVISOR as unknown as Advisor,
+          myHubs: [{ id: DEMO_HUB.id, label: DEMO_HUB.address1 }],
           ...data,
         }));
         return;
@@ -201,7 +204,19 @@ export function HubProvider({ children, demo }: { children: React.ReactNode; dem
         supa.from("ho_profiles").select("*").eq("id", uidv).maybeSingle(),
         supa.from("ho_hub_members").select("hub_id").or(`user_id.eq.${uidv},email.eq.${session.user.email}`),
       ]);
-      const hubId = memberships?.[0]?.hub_id;
+      // Portfolio: a member can belong to several hubs; the active one is a persisted choice.
+      const hubIds: string[] = [...new Set(((memberships ?? []) as { hub_id: string }[]).map((r) => r.hub_id))];
+      let myHubs: { id: string; label: string }[] = [];
+      if (hubIds.length > 1) {
+        const { data: hubRows } = await supa.from("ho_hubs").select("id,address1,unit,city").in("id", hubIds);
+        myHubs = (hubRows ?? []).map((h) => ({
+          id: h.id as string,
+          label: `${h.unit ? `${h.unit}-` : ""}${h.address1}${h.city ? `, ${h.city}` : ""}`,
+        }));
+      }
+      let chosen: string | null = null;
+      try { chosen = localStorage.getItem("julyowner-active-hub"); } catch {}
+      const hubId = (chosen && hubIds.includes(chosen) ? chosen : hubIds[0]) ?? undefined;
       let hub = null, mortgages: Mortgage[] = [], inventory: InventoryItem[] = [], tasks: Task[] = [], docs: Doc[] = [], pro = null, advisor = null, messages: Message[] = [], rentalEntries: RentalEntry[] = [];
       if (hubId) {
         const [h, m, inv, tk, dc, mg, re] = await Promise.all([
@@ -231,6 +246,7 @@ export function HubProvider({ children, demo }: { children: React.ReactNode; dem
       setState({
         loading: false, demo: false, session: true,
         profile: profile as Profile, hub, mortgages, inventory, tasks, docs, messages, rentalEntries,
+        myHubs: myHubs.length > 1 ? myHubs : (hub ? [{ id: (hub as Hub).id, label: (hub as Hub).address1 }] : []),
         pro: pro as Profile | null, advisor: advisor as Advisor | null,
         buyer: { loaded: false, linked: false, watched: [], searches: [], tours: [] },
       });
@@ -518,6 +534,12 @@ export function HubProvider({ children, demo }: { children: React.ReactNode; dem
         .insert({ ...entry, id: undefined, hub_id: state.hub.id })
         .select("id,kind,amount,note,entry_date").single();
       setState((s) => ({ ...s, rentalEntries: [(data as RentalEntry) || entry, ...s.rentalEntries] }));
+    },
+    switchHub(hubId) {
+      if (state.demo || hubId === state.hub?.id) return;
+      try { localStorage.setItem("julyowner-active-hub", hubId); } catch {}
+      // Full reload: clean slate for every per-hub slice (buyer sync, value refresh, messages).
+      window.location.reload();
     },
     async removeRentalEntry(id) {
       if (state.demo) {

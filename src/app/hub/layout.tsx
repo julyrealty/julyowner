@@ -27,7 +27,7 @@ function shade(hex: string, f: number): string {
 }
 
 function Shell({ children }: { children: React.ReactNode }) {
-  const { loading, demo, session, profile, pro, hub, logActivity } = useHub();
+  const { loading, demo, session, profile, pro, hub, logActivity, myHubs, switchHub } = useHub();
   const { signOut } = useHub();
   const path = usePathname();
   const [q, setQ] = useState("");
@@ -94,10 +94,22 @@ function Shell({ children }: { children: React.ReactNode }) {
       )}
       <header className="sticky top-0 z-40 border-b border-line bg-white">
         <div className="container-x flex h-14 items-center justify-between sm:h-16">
-          <Link href={`/hub${q}`} className="flex items-center gap-1.5 text-lg font-extrabold tracking-tight">
-            <span className="text-ink">JULY</span>
-            <span className="flex items-center gap-0.5 text-teal"><Home size={16} strokeWidth={2.8} />Owner</span>
-          </Link>
+          <div className="flex min-w-0 items-center gap-2">
+            <Link href={`/hub${q}`} className="flex shrink-0 items-center gap-1.5 text-lg font-extrabold tracking-tight">
+              <span className="text-ink">JULY</span>
+              <span className="flex items-center gap-0.5 text-teal"><Home size={16} strokeWidth={2.8} />Owner</span>
+            </Link>
+            {myHubs.length > 1 && (
+              <select
+                aria-label="Switch property"
+                className="min-w-0 max-w-[40vw] truncate rounded-full border border-line bg-gray-50 px-2.5 py-1 text-xs font-bold text-gray-600 sm:max-w-56"
+                value={hub?.id ?? ""}
+                onChange={(e) => switchHub(e.target.value)}
+              >
+                {myHubs.map((h) => <option key={h.id} value={h.id}>{h.label}</option>)}
+              </select>
+            )}
+          </div>
           <nav className="hidden items-center gap-1 md:flex">
             {nav.map((n) => (
               <Link key={n.href} href={`${n.href}${q}`}
