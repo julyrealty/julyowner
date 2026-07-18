@@ -8,13 +8,14 @@ import { ArrowUpRight, Flame, UserPlus } from "lucide-react";
 import { DEMO_HUB } from "@/lib/demo";
 
 export default function ProDashboard() {
-  const { profile, contacts, hubs, activities, demo } = usePro();
+  const { profile, contacts, hubs, activities, demo, products } = usePro();
   const q = demo ? "?demo=1" : "";
 
   const totalValue = demo ? DEMO_HUB.home_value + 1120000 : hubs.length * 1200000;
   const commission = Math.round((totalValue * 0.025) / 1000) * 1000;
-  const selling = hubs.filter((h) => h.journey === "selling").length;
-  const buying = hubs.filter((h) => h.journey !== "selling" && h.journey !== "sold" && (h.buying_started_at || h.journey === "buying")).length;
+  // Signal chips are premium: each family shows only with its product entitlement.
+  const selling = products.seller ? hubs.filter((h) => h.journey === "selling").length : 0;
+  const buying = products.buyer ? hubs.filter((h) => h.journey !== "selling" && h.journey !== "sold" && (h.buying_started_at || h.journey === "buying")).length : 0;
   const joined = contacts.filter((c) => c.joined > 0).length;
   const invited = contacts.filter((c) => c.pending > 0).length;
   const unclaimed = Math.max(0, contacts.length - joined - invited);
