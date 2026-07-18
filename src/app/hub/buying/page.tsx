@@ -122,6 +122,11 @@ export default function BuyingPage() {
         <div>
           <p className="eyebrow">Buying HQ</p>
           <h1 className="mt-1 text-2xl font-extrabold tracking-tight sm:text-3xl">Your buying plan</h1>
+          {(hub?.journey === "selling" || hub?.journey === "sold") && (
+            <Link href={`/hub/sell${q}`} className="mt-1 inline-block text-[12px] font-bold text-coral underline underline-offset-2">
+              Also selling — open your selling plan →
+            </Link>
+          )}
         </div>
         <button
           className="text-[12px] font-bold text-gray-400 underline underline-offset-2 transition hover:text-gray-600"

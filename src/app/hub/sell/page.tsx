@@ -218,6 +218,11 @@ export default function SellPage() {
           <div>
             <p className="eyebrow">Seller mode</p>
             <h1 className="mt-1 text-2xl font-extrabold tracking-tight sm:text-3xl">Your selling plan</h1>
+            {hub.buying_started_at && (
+              <Link href={`/hub/buying${q}`} className="mt-1 inline-block text-[12px] font-bold text-teal-deep underline underline-offset-2">
+                Also buying — open your Buying HQ →
+              </Link>
+            )}
           </div>
           <div className="flex items-center gap-2 text-sm text-gray-500">
             <CalendarDays size={15} />
