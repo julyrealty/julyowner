@@ -25,6 +25,7 @@ export type ProHubRow = {
   listing_status?: "preparing" | "listed" | "offers" | "sold" | null;
   buying_started_at?: string | null;
   mortgages?: ProHubMortgage[];
+  is_rental?: boolean; monthly_rent?: number | null; lease_end?: string | null;
 };
 export type ProActivity = { id: string; hub: string; member: string; action: string; detail: string | null; when: string };
 export type ProState = {
@@ -73,6 +74,7 @@ export function ProProvider({ children, demo }: { children: React.ReactNode; dem
             {
               id: "h2", address: "1444 W 8th Ave #302, Vancouver, BC", contact: "Sam Okafor", updated: "2 days ago", journey: "owning", buying_started_at: "2026-07-15T18:20:00Z",
               mortgages: [{ lender: "Westbrook Financial", loan_type: "5-Year Fixed", rate: 5.34, balance: 428000, start_date: "2022-01-01", term_months: 60 }],
+              is_rental: true, monthly_rent: 2850, lease_end: "2026-09-30",
             },
           ],
           recommended: saved.recommended ?? PROVIDERS.filter((p) => p.recommended).map((p) => p.id),
@@ -89,7 +91,7 @@ export function ProProvider({ children, demo }: { children: React.ReactNode; dem
         supa.from("ho_profiles").select("*").eq("id", uidv).maybeSingle(),
         supa.from("ho_contacts").select("*").eq("pro_id", uidv).order("created_at", { ascending: false }),
         supa.from("ho_advisors").select("*").eq("pro_id", uidv),
-        supa.from("ho_hubs").select("id,full_address,address1,created_at,journey,selling_started_at,listing_status,buying_started_at,ho_hub_members(first_name,last_name)").eq("pro_id", uidv),
+        supa.from("ho_hubs").select("id,full_address,address1,created_at,journey,selling_started_at,listing_status,buying_started_at,is_rental,monthly_rent,lease_end,ho_hub_members(first_name,last_name)").eq("pro_id", uidv),
         supa.from("ho_recommendations").select("provider_id").eq("pro_id", uidv),
         supa.from("ho_activities").select("id,action,detail,member_email,created_at,ho_hubs!inner(address1,pro_id)").eq("ho_hubs.pro_id", uidv).order("created_at", { ascending: false }).limit(25),
         supa.from("ho_leads").select("*").eq("pro_id", uidv).order("created_at", { ascending: false }).limit(10),
@@ -136,6 +138,9 @@ export function ProProvider({ children, demo }: { children: React.ReactNode; dem
             selling_started_at: (hh.selling_started_at as string | null) ?? null,
             listing_status: (hh.listing_status as ProHubRow["listing_status"]) ?? null,
             buying_started_at: (hh.buying_started_at as string | null) ?? null,
+            is_rental: Boolean(hh.is_rental),
+            monthly_rent: (hh.monthly_rent as number | null) ?? null,
+            lease_end: (hh.lease_end as string | null) ?? null,
             mortgages: mtgByHub.get(String(hh.id)) ?? [],
           };
         }),

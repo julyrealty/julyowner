@@ -265,6 +265,17 @@ OPEN (build roadmap — agreed sequence):
   pattern: key-auth'd envelope create/status) or shares the repo.
 - P3: JULY Lend at pre-approval/renewal (renewal radar from stored
   mortgages), Draft+Sign at offer/listing, Insure at subject removal.
+- **INVESTOR SLICE 2 (LANDLORD MODE) SHIPPED wave 8:** ho_hubs gains
+  is_rental/monthly_rent/lease_start/lease_end/tenant_name +
+  ho_rental_entries table (income/expense ledger, RLS member-write /
+  participant-read — ledger UI is the NEXT slice). Build Wealth
+  "Landlord mode" section: activation card → lease form (auto-saves via
+  updateHub), lease-end countdown pill (amber ≤90d), your-rent vs live
+  market-median comparison w/ headroom message, BC notice-deadline
+  callout, "Talk renewal strategy" → messages. Pro Signals gains LEASE
+  RENEWALS (landlord hubs w/ lease_end inside 120d, sorted soonest,
+  rent shown; demo: Sam Okafor rents out 1444 W 8th at $2,850, lease
+  ends Sep 30 — he's a buyer AND landlord = the investor story).
 - **INVESTOR SLICE SHIPPED wave 7:** "Rent it instead" card on Build
   Wealth — live median asking rents from july-platform rent_model
   (fetchCityRents in platform.ts; anon-readable, building_type='any'

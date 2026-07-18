@@ -146,6 +146,42 @@ export default function ProOpportunities() {
         </div>
       )}
 
+      {/* LEASE RENEWALS — landlord hubs with leases ending inside 120 days */}
+      {(() => {
+        const now = Date.now();
+        const leases = hubs
+          .filter((h) => h.is_rental && h.lease_end)
+          .map((h) => ({ h, end: new Date(`${h.lease_end}T12:00:00`), days: Math.ceil((new Date(`${h.lease_end}T12:00:00`).getTime() - now) / 86400000) }))
+          .filter((x) => x.days > -30 && x.days <= 120)
+          .sort((a, b) => a.days - b.days);
+        if (!leases.length) return null;
+        return (
+          <div className="mt-6">
+            <p className="section-label">Lease renewals</p>
+            <div className="mt-2 space-y-2">
+              {leases.map(({ h, end, days }) => (
+                <Card key={`lease-${h.id}`} className="flex items-center gap-3 p-4">
+                  <Avatar name={h.contact} size={36} />
+                  <div className="min-w-0 flex-1">
+                    <p className="truncate font-bold">{h.contact} — landlord</p>
+                    <p className="truncate text-xs text-gray-500">{h.address}</p>
+                    <p className="truncate text-xs font-semibold text-gray-600">
+                      Lease {days <= 0 ? "ended" : "ends"} {end.toLocaleDateString("en-CA", { month: "short", day: "numeric" })}
+                      {h.monthly_rent ? ` · $${Number(h.monthly_rent).toLocaleString("en-CA")}/mo` : ""}
+                    </p>
+                    <p className="mt-0.5 text-[11px] text-gray-400">Renewal, rent review, or re-list — they need a plan before notice deadlines.</p>
+                  </div>
+                  <span className={`shrink-0 rounded-full px-2.5 py-1 text-[11px] font-extrabold ${days <= 60 ? "bg-amber-100 text-amber-700" : "bg-teal-soft text-teal-deep"}`}>
+                    {days <= 0 ? "now" : `${days}d`}
+                  </span>
+                  <Link href={`/hub${q}`} className="btn btn-primary btn-sm shrink-0">Open hub</Link>
+                </Card>
+              ))}
+            </div>
+          </div>
+        );
+      })()}
+
       <div className="mt-5 space-y-2">
         {scored.map((c) => {
           const p = c.propensity ?? 0;

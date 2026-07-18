@@ -38,6 +38,8 @@ export type Hub = {
   selling_started_at?: string | null; target_list_month?: string | null;
   listing_status?: "preparing" | "listed" | "offers" | "sold" | null;
   buying_started_at?: string | null;
+  is_rental?: boolean; monthly_rent?: number | null;
+  lease_start?: string | null; lease_end?: string | null; tenant_name?: string | null;
 };
 export type Profile = {
   id: string; role: "homeowner" | "professional"; first_name: string | null; last_name: string | null;

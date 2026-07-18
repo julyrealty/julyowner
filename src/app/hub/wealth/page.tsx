@@ -177,6 +177,89 @@ export default function BuildWealth() {
             );
           })()}
 
+          {/* LANDLORD MODE — lease tracking for hubs that ARE rentals */}
+          <section>
+            <SectionLabel>Landlord mode</SectionLabel>
+            {!hub?.is_rental ? (
+              <Card className="flex flex-wrap items-center justify-between gap-3 p-5">
+                <div className="min-w-0">
+                  <p className="text-sm font-extrabold">Already renting this home out?</p>
+                  <p className="mt-0.5 text-[13px] text-gray-500">Track the lease, spot renewal dates early, and compare your rent to the market.</p>
+                </div>
+                <button className="btn btn-primary btn-sm shrink-0"
+                  onClick={() => { updateHub({ is_rental: true }); logActivity("Turned on landlord mode"); }}>
+                  Turn on landlord mode
+                </button>
+              </Card>
+            ) : (() => {
+              const leaseEnd = hub.lease_end ? new Date(`${hub.lease_end}T12:00:00`) : null;
+              const daysLeft = leaseEnd ? Math.ceil((leaseEnd.getTime() - Date.now()) / 86400000) : null;
+              const marketCell = rents?.find((r) => r.beds === beds) ?? (rents ? rents[rents.length - 1] : null);
+              const market = marketCell?.median_rent ?? null;
+              const myRent = hub.monthly_rent ?? null;
+              const headroom = market && myRent ? market - Number(myRent) : null;
+              return (
+                <Card className="p-5 sm:p-6">
+                  <div className="flex flex-wrap items-center justify-between gap-2">
+                    <p className="text-sm font-extrabold">Your lease</p>
+                    {daysLeft != null && (
+                      <span className={`rounded-full px-3 py-1 text-xs font-extrabold ${
+                        daysLeft <= 0 ? "bg-coral/10 text-coral"
+                        : daysLeft <= 90 ? "bg-amber-100 text-amber-700"
+                        : "bg-teal-soft text-teal-deep"}`}>
+                        {daysLeft <= 0 ? "Lease ended — month-to-month?" : `Lease ends in ${daysLeft} days`}
+                      </span>
+                    )}
+                  </div>
+                  <div className="mt-3 grid grid-cols-2 gap-3 sm:grid-cols-4">
+                    <div>
+                      <label className="text-[11px] font-bold uppercase tracking-wide text-gray-400">Monthly rent ($)</label>
+                      <input className="input mt-1" inputMode="numeric" value={hub.monthly_rent ?? ""}
+                        onChange={(e) => updateHub({ monthly_rent: e.target.value === "" ? null : Number(e.target.value) || 0 })} />
+                    </div>
+                    <div>
+                      <label className="text-[11px] font-bold uppercase tracking-wide text-gray-400">Tenant (optional)</label>
+                      <input className="input mt-1" value={hub.tenant_name ?? ""}
+                        onChange={(e) => updateHub({ tenant_name: e.target.value || null })} />
+                    </div>
+                    <div>
+                      <label className="text-[11px] font-bold uppercase tracking-wide text-gray-400">Lease start</label>
+                      <input className="input mt-1" type="date" value={hub.lease_start ?? ""}
+                        onChange={(e) => updateHub({ lease_start: e.target.value || null })} />
+                    </div>
+                    <div>
+                      <label className="text-[11px] font-bold uppercase tracking-wide text-gray-400">Lease end</label>
+                      <input className="input mt-1" type="date" value={hub.lease_end ?? ""}
+                        onChange={(e) => updateHub({ lease_end: e.target.value || null })} />
+                    </div>
+                  </div>
+                  {myRent != null && market != null && (
+                    <p className="mt-3 text-[13px] leading-relaxed text-gray-600">
+                      You charge <b>{cad(Number(myRent))}</b> vs a <b>{cad(market)}</b> market median for {marketCell?.beds ?? beds}-bed homes here —{" "}
+                      {headroom != null && headroom > 100
+                        ? <span className="font-bold text-emerald-600">≈ {cad(headroom)}/mo of headroom at renewal.</span>
+                        : headroom != null && headroom < -100
+                          ? <span className="font-bold text-amber-700">above market — plan the renewal conversation carefully.</span>
+                          : <span className="font-bold">right at market.</span>}
+                    </p>
+                  )}
+                  {daysLeft != null && daysLeft <= 90 && daysLeft > 0 && (
+                    <p className="mt-2 rounded-xl bg-amber-50 px-3 py-2 text-[12px] leading-relaxed text-amber-800">
+                      Renewal window: BC requires proper notice for rent increases and lease changes — talk it through before the clock runs out.
+                    </p>
+                  )}
+                  <div className="mt-3 flex flex-wrap items-center justify-between gap-2">
+                    <button className="text-[11px] font-bold text-gray-400 underline"
+                      onClick={() => { updateHub({ is_rental: false }); logActivity("Turned off landlord mode"); }}>
+                      Not a rental anymore
+                    </button>
+                    <Link href={`/hub/messages${q}`} className="btn btn-ghost btn-sm shrink-0">Talk renewal strategy</Link>
+                  </div>
+                </Card>
+              );
+            })()}
+          </section>
+
           {/* PROJECTS */}
           <section id="projects">
             <SectionLabel>Improvement projects — cost vs. value added</SectionLabel>
