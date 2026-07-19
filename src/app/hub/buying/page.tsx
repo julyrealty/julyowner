@@ -25,18 +25,27 @@ function specLine(beds?: number | null, baths?: number | null, city?: string | n
     .filter(Boolean).join(" · ");
 }
 
-/** Listing photo with a graceful tile fallback (CDN photos can expire). */
+/** DDF photos come as 1600px originals; thumbnails only need the 256px variant. */
+function thumbSrc(url: string): string {
+  return url.replace("/highres/", "/medres/");
+}
+
+/** Listing photo: small variant first, then the original, then a tile. */
 function ListingThumb({ src, alt, className }: { src?: string | null; alt: string; className: string }) {
-  const [broken, setBroken] = useState(false);
-  if (!src || broken) {
+  const [step, setStep] = useState(0); // 0 = medres, 1 = original, 2 = give up
+  const url = src ? (step === 0 ? thumbSrc(src) : src) : null;
+  if (!url || step > 1) {
     return (
       <div className={`flex items-center justify-center bg-teal-soft text-teal-deep ${className}`}>
         <House size={24} />
       </div>
     );
   }
-  // eslint-disable-next-line @next/next/no-img-element
-  return <img src={src} alt={alt} loading="lazy" onError={() => setBroken(true)} className={`object-cover ${className}`} />;
+  return (
+    // eslint-disable-next-line @next/next/no-img-element
+    <img key={step} src={url} alt={alt} loading="lazy" onError={() => setStep((s) => s + 1)}
+      className={`object-cover ${className}`} />
+  );
 }
 
 export default function BuyingPage() {
