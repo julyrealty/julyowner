@@ -206,7 +206,11 @@ export default function ProHubs() {
       <div className="flex flex-wrap items-end justify-between gap-3">
         <div>
           <h1 className="text-2xl font-extrabold tracking-tight sm:text-3xl">Hubs</h1>
-          <p className="mt-1 text-sm text-gray-500">Every property you sponsor — open any hub to see exactly what your client sees.</p>
+          <p className="mt-1 text-sm text-gray-500">
+            {demo
+              ? "Every property you sponsor — open any hub to see exactly what your client sees."
+              : "Every property you sponsor — tap a hub for its full timeline and messages."}
+          </p>
         </div>
         <Link href={`/pro/contacts${q}`} className="btn btn-dark btn-md">+ New hub</Link>
       </div>
@@ -246,13 +250,17 @@ export default function ProHubs() {
                   <Avatar name={h.contact} size={30} />
                   <span className="text-sm font-semibold text-gray-600">{h.contact}</span>
                 </div>
-                <Link
-                  href={`/hub${demo ? "?demo=1" : ""}`}
-                  className="btn btn-ghost btn-sm shrink-0"
-                  onClick={(e) => e.stopPropagation()}
-                >
-                  <ExternalLink size={14} /> Open
-                </Link>
+                {/* Live pros aren't hub members (RLS keeps the client's hub theirs) —
+                    the demo hub is the only one "Open" can actually show. */}
+                {demo && (
+                  <Link
+                    href="/hub?demo=1"
+                    className="btn btn-ghost btn-sm shrink-0"
+                    onClick={(e) => e.stopPropagation()}
+                  >
+                    <ExternalLink size={14} /> Open
+                  </Link>
+                )}
                 <button
                   aria-expanded={open}
                   aria-controls={panelId}
