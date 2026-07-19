@@ -152,6 +152,23 @@ verification (for JULY Answer later); rotate exposed VERCEL_TOKEN +
 SUPABASE_ACCESS_TOKEN (BuyerAiPro handoff §10.9).
 
 OPEN (build roadmap — agreed sequence):
+- **GUIDES SHIPPED 2026-07-19 (wave 18):** every "Featured guides" card
+  on /hub, /hub/manage and /hub/wealth was a DEAD END — 11 cards, no
+  article route existed at all. Added `/hub/guides` (library + reader in
+  one static route, article chosen by `?a=<slug>` so no dynamic segment
+  and the existing useSearchParams/Suspense pattern still applies) and
+  `src/lib/guides.ts` carrying nine full guides (demo.ts re-exports
+  ARTICLES/Article so every existing import is unchanged). Guide bodies
+  are `GuideBlock[]` = {h, p?[], ul?[]}. CONTENT RULE: no rates, no
+  dollar thresholds, no legal/tax rulings — where a rule actually governs
+  (permits, zoning, tenancy, insurance limits) the guide points at the
+  municipality / RTB / broker instead of guessing. Keep that rule when
+  adding guides; Han is a licensed brokerage and stale specifics are a
+  liability. Also fixed: Purchasing power on /hub/wealth had NO caveat on
+  4 very large numbers (equity*5 etc.) — now states they are an equity
+  ceiling that ignores income/debts/stress test. NOTE the multiplier
+  itself (calc.ts purchasingPower) is unreviewed by Han — flagged to him,
+  not silently changed.
 - **BUYER-FIT HUBS SHIPPED 2026-07-19 (wave 17, from Han's live-test
   screenshots):** pure buyer hubs (journey='buying') are now buyer-shaped
   end to end. hub/layout: BUYER_NAV (My Search /hub/buying, Documents
