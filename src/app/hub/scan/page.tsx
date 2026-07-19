@@ -69,6 +69,7 @@ export default function AiReview() {
   const [err, setErr] = useState<string | null>(null);
   const [rows, setRows] = useState<ScanRow[] | null>(null);
   const [open, setOpen] = useState<ScanRow | null>(null);
+  const [cancelling, setCancelling] = useState<string | null>(null);
   const fileRef = useRef<HTMLInputElement>(null);
 
   /* Your reviews — loaded from the server, so they are here whether or not
@@ -82,6 +83,21 @@ export default function AiReview() {
   }, [demo, hub]);
 
   useEffect(() => { void loadRows(); }, [loadRows]);
+
+  /** Stop waiting on a review. The upstream job may already be running, so this
+      stops the tracking rather than promising a refund. */
+  const cancelScan = useCallback(async (scanId: string) => {
+    if (!hub) return;
+    setCancelling(scanId);
+    try {
+      await sb().functions.invoke("ho-scan", { body: { action: "cancel", hub_id: hub.id, scan_id: scanId } });
+      await loadRows();
+    } catch {
+      setErr("Couldn't cancel that one. Refresh and try again.");
+    } finally {
+      setCancelling(null);
+    }
+  }, [hub, loadRows]);
 
   // While something is running, refresh quietly so it flips to Ready on its own.
   const anyRunning = (rows ?? []).some((r) => r.status === "pending");
@@ -159,27 +175,38 @@ export default function AiReview() {
               {rows.map((r) => {
                 const meta = SCANNERS.find((s) => s.key === r.scan_type);
                 return (
-                  <button key={r.id} onClick={() => r.status === "complete" && setOpen(r)}
-                    disabled={r.status !== "complete"}
-                    className="flex w-full items-center gap-3 p-4 text-left transition enabled:hover:bg-gray-50 disabled:cursor-default">
-                    <span className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-xl ${
-                      r.status === "complete" ? "bg-teal-soft text-teal-deep"
-                      : r.status === "failed" ? "bg-red-50 text-coral" : "bg-gray-100 text-gray-400"}`}>
-                      {r.status === "complete" ? <Check size={17} strokeWidth={3} />
-                        : r.status === "failed" ? <AlertTriangle size={16} />
-                        : <Loader2 size={16} className="animate-spin" />}
-                    </span>
-                    <span className="min-w-0 flex-1">
-                      <span className="block truncate text-sm font-bold">{r.document_name || "Document"}</span>
-                      <span className="block text-[11px] text-gray-400">
-                        {meta?.label ?? r.scan_type} · {r.status === "pending"
-                          ? `started ${relTime(r.created_at)} — still reading`
-                          : r.status === "failed" ? (r.error || "failed")
-                          : `ready ${relTime(r.completed_at ?? r.created_at)}`}
+                  <div key={r.id} className="flex items-center gap-3 p-4">
+                    <button onClick={() => r.status === "complete" && setOpen(r)}
+                      disabled={r.status !== "complete"}
+                      className="flex min-w-0 flex-1 items-center gap-3 text-left transition enabled:hover:opacity-70 disabled:cursor-default">
+                      <span className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-xl ${
+                        r.status === "complete" ? "bg-teal-soft text-teal-deep"
+                        : r.status === "failed" ? "bg-red-50 text-coral" : "bg-gray-100 text-gray-400"}`}>
+                        {r.status === "complete" ? <Check size={17} strokeWidth={3} />
+                          : r.status === "failed" ? <AlertTriangle size={16} />
+                          : <Loader2 size={16} className="animate-spin" />}
                       </span>
-                    </span>
+                      <span className="min-w-0 flex-1">
+                        <span className="block truncate text-sm font-bold">{r.document_name || "Document"}</span>
+                        <span className="block text-[11px] text-gray-400">
+                          {meta?.label ?? r.scan_type} · {r.status === "pending"
+                            ? `started ${relTime(r.created_at)} — still reading`
+                            : r.status === "failed" ? (r.error || "failed")
+                            : `ready ${relTime(r.completed_at ?? r.created_at)}`}
+                        </span>
+                      </span>
+                    </button>
                     {r.status === "complete" && <span className="shrink-0 text-[12px] font-bold text-teal-deep">View</span>}
-                  </button>
+                    {r.status === "pending" && (
+                      <button
+                        onClick={() => cancelScan(r.id)}
+                        disabled={cancelling === r.id}
+                        className="shrink-0 rounded-full border border-line px-3 py-1 text-[11px] font-bold text-gray-500 transition hover:border-coral hover:text-coral disabled:opacity-50"
+                      >
+                        {cancelling === r.id ? "Stopping…" : "Cancel"}
+                      </button>
+                    )}
+                  </div>
                 );
               })}
             </Card>

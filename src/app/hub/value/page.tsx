@@ -1,14 +1,20 @@
 "use client";
 // Buyer-side valuation: look up what any home is worth before you offer.
 // White-labelled JULY Value — the buyer never leaves the hub or signs in again.
-import { useState } from "react";
+//
+// Address entry is autocomplete-first on purpose. JULY Value matches its stored
+// address literally and stores it inconsistently ("Hastings St" but "33rd
+// Avenue"), so typing a street type it did not store returns nothing and looks
+// like the tool is broken. Picking from a list can only ever produce an address
+// the service actually holds.
+import { useCallback, useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
-import { Search, ArrowRight, Loader2, Info, TrendingUp, ExternalLink } from "lucide-react";
+import { Search, ArrowRight, Loader2, Info, TrendingUp, ExternalLink, MapPin } from "lucide-react";
 import { useHub } from "@/lib/store";
 import { sb } from "@/lib/supabase";
 import { cad } from "@/lib/calc";
-import { Card, SectionLabel, Field, Pill } from "@/components/ui";
+import { Card, SectionLabel, Pill } from "@/components/ui";
 
 type Result = {
   matched: boolean;
@@ -20,40 +26,86 @@ type Result = {
   attribution?: string | null;
 };
 
+type Suggestion = { property_id: string; address: string };
+
 const CONFIDENCE_NOTE: Record<string, string> = {
   high: "Plenty of comparable sales nearby — this range is tight for a reason.",
   medium: "Fewer close comparables. Treat the range as the real answer, not the midpoint.",
   low: "Thin data for this property type or area. Useful as a sanity check, not a number to offer on.",
 };
 
+/** Shown only in the demo hub, where the banner says everything is a sample. */
+const DEMO_SUGGESTIONS: Suggestion[] = [
+  { property_id: "demo-1", address: "404-5535 Hastings St, Burnaby" },
+  { property_id: "demo-2", address: "302-5535 Hastings St, Burnaby" },
+  { property_id: "demo-3", address: "2080 W 33rd Avenue, Vancouver" },
+];
+
 export default function BuyerValuation() {
   const { demo } = useHub();
   const params = useSearchParams();
   const q = params.get("demo") === "1" ? "?demo=1" : "";
 
-  const [addr, setAddr] = useState({ unit: "", address1: "", city: "" });
+  const [query, setQuery] = useState("");
+  const [sugg, setSugg] = useState<Suggestion[] | null>(null);
+  const [searching, setSearching] = useState(false);
+  const [open, setOpen] = useState(false);
+  const [cursor, setCursor] = useState(-1);
   const [busy, setBusy] = useState(false);
   const [res, setRes] = useState<Result | null>(null);
   const [err, setErr] = useState<string | null>(null);
+  const boxRef = useRef<HTMLDivElement>(null);
+  // Only the newest search may write results — a slow early keystroke must not
+  // overwrite the suggestions for what the user has since typed.
+  const seq = useRef(0);
 
-  const ready = addr.address1.trim().length > 2 && addr.city.trim().length > 1;
+  useEffect(() => {
+    const onDown = (e: MouseEvent) => {
+      if (boxRef.current && !boxRef.current.contains(e.target as Node)) setOpen(false);
+    };
+    document.addEventListener("mousedown", onDown);
+    return () => document.removeEventListener("mousedown", onDown);
+  }, []);
 
-  async function lookup() {
-    if (!ready || busy) return;
-    setBusy(true); setErr(null); setRes(null);
+  useEffect(() => {
+    const term = query.trim();
+    if (term.length < 3) { setSugg(null); setSearching(false); return; }
+    const mine = ++seq.current;
+    setSearching(true);
+    const t = setTimeout(async () => {
+      let rows: Suggestion[] = [];
+      try {
+        if (demo) {
+          await new Promise((r) => setTimeout(r, 250));
+          const lc = term.toLowerCase();
+          rows = DEMO_SUGGESTIONS.filter((s) => s.address.toLowerCase().includes(lc.split(" ")[0]));
+        } else {
+          const { data } = await sb().functions.invoke("ho-value", { body: { action: "search", q: term } });
+          rows = ((data as { results?: Suggestion[] })?.results ?? []).filter((r) => r.property_id);
+        }
+      } catch {
+        rows = [];
+      }
+      if (mine !== seq.current) return;
+      setSugg(rows); setSearching(false); setOpen(true); setCursor(-1);
+    }, 350);
+    return () => clearTimeout(t);
+  }, [query, demo]);
+
+  const pick = useCallback(async (s: Suggestion) => {
+    setOpen(false); setQuery(s.address); setBusy(true); setErr(null); setRes(null);
     try {
       if (demo) {
-        // Demo shows the shape of a real answer without spending an API call.
-        await new Promise((r) => setTimeout(r, 700));
+        await new Promise((r) => setTimeout(r, 600));
         setRes({
-          matched: true, address: `${addr.address1}, ${addr.city}`,
+          matched: true, address: s.address,
           estimate: 1184000, low: 1121000, high: 1247000, confidence: "medium",
           attribution: "Estimate by JULY Value (julyvalue.com). Not an appraisal.",
         });
         return;
       }
       const { data, error } = await sb().functions.invoke("ho-value", {
-        body: { action: "lookup", address1: addr.address1.trim(), unit: addr.unit.trim() || null, city: addr.city.trim() },
+        body: { action: "lookup", property_id: s.property_id },
       });
       if (error) throw error;
       setRes(data as Result);
@@ -62,7 +114,17 @@ export default function BuyerValuation() {
     } finally {
       setBusy(false);
     }
+  }, [demo]);
+
+  function onKey(e: React.KeyboardEvent) {
+    if (!open || !sugg?.length) return;
+    if (e.key === "ArrowDown") { e.preventDefault(); setCursor((c) => Math.min(c + 1, sugg.length - 1)); }
+    else if (e.key === "ArrowUp") { e.preventDefault(); setCursor((c) => Math.max(c - 1, -1)); }
+    else if (e.key === "Enter" && cursor >= 0) { e.preventDefault(); pick(sugg[cursor]); }
+    else if (e.key === "Escape") setOpen(false);
   }
+
+  const noMatches = !searching && sugg !== null && sugg.length === 0 && query.trim().length >= 3;
 
   return (
     <div>
@@ -72,45 +134,87 @@ export default function BuyerValuation() {
           <h1 className="mt-1 text-3xl font-extrabold tracking-tight sm:text-4xl">What is it actually worth?</h1>
           <p className="mt-2 max-w-2xl text-sm leading-relaxed text-white/75">
             Before you write an offer, check the asking price against an independent estimate.
-            Look up any address in Canada — no sign-up, no phone number, no salesperson.
+            Start typing an address and pick it from the list — no sign-up, no phone number, no
+            salesperson.
           </p>
         </div>
       </section>
 
-      <div className="container-x grid gap-6 py-8 lg:grid-cols-[1fr_340px]">
-        <div className="space-y-6">
+      <div className="container-x grid min-w-0 gap-6 py-8 lg:grid-cols-[1fr_340px]">
+        <div className="min-w-0 space-y-6">
           <Card className="p-5 sm:p-6">
-            <div className="grid gap-3 sm:grid-cols-[110px_1fr]">
-              <Field label="Unit (optional)">
-                <input className="input" placeholder="404" value={addr.unit}
-                  onChange={(e) => setAddr({ ...addr, unit: e.target.value })} />
-              </Field>
-              <Field label="Street address">
-                <input className="input" placeholder="5535 Hastings Street" value={addr.address1}
-                  onChange={(e) => setAddr({ ...addr, address1: e.target.value })}
-                  onKeyDown={(e) => { if (e.key === "Enter") lookup(); }} />
-              </Field>
+            <label className="mb-1.5 block text-xs font-bold uppercase tracking-wide text-gray-400" htmlFor="jv-addr">
+              Address
+            </label>
+            <div ref={boxRef} className="relative">
+              <div className="relative">
+                <MapPin size={16} className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+                <input
+                  id="jv-addr"
+                  className="input pl-9"
+                  placeholder="Start typing — e.g. 5535 Hastings"
+                  autoComplete="off"
+                  value={query}
+                  onChange={(e) => { setQuery(e.target.value); setRes(null); }}
+                  onFocus={() => { if (sugg?.length) setOpen(true); }}
+                  onKeyDown={onKey}
+                  role="combobox"
+                  aria-expanded={open}
+                  aria-controls="jv-suggestions"
+                />
+                {(searching || busy) && (
+                  <Loader2 size={16} className="absolute right-3 top-1/2 -translate-y-1/2 animate-spin text-teal" />
+                )}
+              </div>
+
+              {open && !!sugg?.length && (
+                <ul id="jv-suggestions" role="listbox"
+                  className="absolute z-30 mt-1 max-h-72 w-full overflow-y-auto rounded-xl border border-line bg-white py-1 shadow-lg">
+                  {sugg.map((s, i) => (
+                    <li key={s.property_id} role="option" aria-selected={i === cursor}>
+                      <button
+                        type="button"
+                        onMouseEnter={() => setCursor(i)}
+                        onClick={() => pick(s)}
+                        className={`flex w-full items-center gap-2 px-3 py-2.5 text-left text-sm transition ${i === cursor ? "bg-teal-soft text-teal-deep" : "hover:bg-gray-50"}`}
+                      >
+                        <MapPin size={14} className="shrink-0 text-gray-400" />
+                        <span className="min-w-0 truncate font-semibold">{s.address}</span>
+                      </button>
+                    </li>
+                  ))}
+                </ul>
+              )}
             </div>
-            <div className="mt-3">
-              <Field label="City">
-                <input className="input" placeholder="Burnaby" value={addr.city}
-                  onChange={(e) => setAddr({ ...addr, city: e.target.value })}
-                  onKeyDown={(e) => { if (e.key === "Enter") lookup(); }} />
-              </Field>
-            </div>
-            <button className="btn btn-primary btn-lg mt-4 w-full" disabled={!ready || busy} onClick={lookup}>
-              {busy ? <><Loader2 size={16} className="animate-spin" /> Checking…</> : <><Search size={16} /> Get the estimate</>}
-            </button>
+
+            <p className="mt-2 text-[12px] leading-relaxed text-gray-400">
+              Pick from the list — those are the addresses JULY Value holds data for.
+            </p>
+
             {err && <p className="mt-3 text-center text-[13px] text-coral">{err}</p>}
           </Card>
 
+          {/* Not "no match for that address" — the address may be perfectly real
+              and simply outside the data JULY Value covers. Say which. */}
+          {noMatches && !res && (
+            <Card className="p-6">
+              <p className="text-sm font-bold">Nothing found for that yet</p>
+              <p className="mt-1 text-[13px] leading-relaxed text-gray-500">
+                Try fewer words — just the number and street name, like <b>5535 Hastings</b> rather than
+                the full &ldquo;Street&rdquo; or city. If it still doesn&apos;t appear, JULY Value
+                doesn&apos;t hold comparable sales for that property yet. That is a gap in the data, not
+                a verdict on the home — your advisor can pull the comparable set manually.
+              </p>
+              <Link href={`/hub/messages${q}`} className="btn btn-ghost btn-sm mt-3">Ask my advisor <ArrowRight size={14} /></Link>
+            </Card>
+          )}
+
           {res && !res.matched && (
             <Card className="p-6">
-              <p className="text-sm font-bold">No confident match for that address</p>
+              <p className="text-sm font-bold">No estimate available for that property</p>
               <p className="mt-1 text-[13px] leading-relaxed text-gray-500">
-                That usually means the unit or city didn&apos;t line up, or the property type is thin on
-                comparable sales. Check the spelling and unit number — or ask your advisor, who can pull
-                the full comparable set manually.
+                The address is on file but there aren&apos;t enough comparable sales to put a number on
+                it with any confidence. Your advisor can work it manually.
               </p>
               <Link href={`/hub/messages${q}`} className="btn btn-ghost btn-sm mt-3">Ask my advisor <ArrowRight size={14} /></Link>
             </Card>
@@ -163,7 +267,7 @@ export default function BuyerValuation() {
             </section>
           )}
 
-          {!res && (
+          {!res && !noMatches && (
             <Card className="p-6">
               <p className="flex items-center gap-2 text-sm font-extrabold"><TrendingUp size={16} className="text-teal-deep" /> Why check before you offer</p>
               <ul className="mt-3 space-y-2.5">
@@ -181,7 +285,7 @@ export default function BuyerValuation() {
           )}
         </div>
 
-        <aside className="space-y-6">
+        <aside className="min-w-0 space-y-6">
           <section>
             <SectionLabel>How this works</SectionLabel>
             <Card className="p-5">
@@ -189,6 +293,9 @@ export default function BuyerValuation() {
                 Estimates come from JULY Value, which reads recent comparable sales around the address
                 and returns a range with a confidence grade. It runs inside your hub — nothing to sign
                 up for, and no one calls you afterwards.
+              </p>
+              <p className="mt-2 text-[12px] leading-relaxed text-gray-400">
+                Coverage depends on where comparable sales exist, so some addresses won&apos;t appear.
               </p>
               <p className="mt-3 flex items-center gap-1.5 text-[11px] font-semibold text-gray-400">
                 <Pill tone="teal">Powered by JULY Value</Pill>

@@ -279,6 +279,23 @@ Deno.serve(async (req) => {
       return json({ scans: rows ?? [] });
     }
 
+    /* ---------------- action: cancel ----------------
+       Stops the poller advancing a review the user no longer wants. The
+       upstream job may already be running and is not refunded — we simply
+       stop waiting on it and stop showing it. */
+    if (action === "cancel") {
+      const scanId = body?.scan_id;
+      if (typeof scanId !== "string" || !scanId) return json({ error: "scan_id is required" }, 400);
+      const { data: row } = await admin
+        .from("ho_scans").select("id,status").eq("id", scanId).eq("hub_id", hubId).maybeSingle();
+      if (!row) return json({ error: "Not found" }, 404);
+      if (row.status !== "pending") return json({ ok: true, status: row.status });
+      await admin.from("ho_scans")
+        .update({ status: "failed", error: "Cancelled", completed_at: new Date().toISOString() })
+        .eq("id", scanId);
+      return json({ ok: true, status: "cancelled" });
+    }
+
     const conf = await cfg(admin, ["buyeraipro_api_url", "buyeraipro_api_key"]);
     const rawUrl = conf["buyeraipro_api_url"];
     const apiKey = conf["buyeraipro_api_key"];
@@ -305,6 +322,26 @@ Deno.serve(async (req) => {
       if (!doc) return json({ error: "Document not found" }, 404);
       if (!doc.storage_path) return json({ error: "This document has no stored file to scan." }, 400);
       if (!/\.pdf$/i.test(doc.name ?? "")) return json({ error: "Only PDF documents can be scanned." }, 400);
+
+      /* Idempotency guard. A double-submit — impatient second click, a retry,
+         a remounted component — used to start a SECOND upstream job on the same
+         file: duplicate work and a duplicate charge. Han hit exactly this: two
+         jobs on one title PDF, six seconds apart. Hand back the in-flight scan
+         instead of buying another one. */
+      const { data: inflight } = await admin
+        .from("ho_scans")
+        .select("id, job_id, status")
+        .eq("hub_id", hubId)
+        .eq("document_id", documentId)
+        .eq("scan_type", scanType)
+        .eq("status", "pending")
+        .gt("created_at", new Date(Date.now() - 15 * 60 * 1000).toISOString())
+        .order("created_at", { ascending: false })
+        .limit(1)
+        .maybeSingle();
+      if (inflight?.job_id) {
+        return json({ job_id: inflight.job_id, scan_id: inflight.id, status: "pending", reused: true });
+      }
 
       // 10-minute signed URL — BuyerAiPro fetches the bytes server-side right away.
       const { data: signed, error: signErr } = await admin.storage

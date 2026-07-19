@@ -26,6 +26,56 @@ type JvEstimate = {
   confidence: string; attribution?: string;
 };
 
+/**
+ * Raw address search, for the buyer-side autocomplete.
+ *
+ * JULY Value matches the stored address literally and stores it inconsistently
+ * ("5535 Hastings St" in Burnaby, "2080 W 33rd Avenue" in Vancouver), so typing
+ * the full street type misses: "5535 Hastings Street" returns nothing while
+ * "5535 Hastings" returns seven. Dropping trailing words until something hits
+ * covers that, and also covers a city typed into the street box.
+ */
+async function jvSearch(q: string, limit = 8): Promise<{ propertyId: string; address?: string }[]> {
+  const base = await cfg("julyvalue_api_url");
+  const key = await cfg("julyvalue_api_key");
+  const cleaned = q.replace(/[,]/g, " ").replace(/\s+/g, " ").trim();
+  if (!base || !key || cleaned.length < 3) return [];
+  const H = { "X-API-Key": key, "content-type": "application/json" };
+
+  const tokens = cleaned.split(" ");
+  const tries: string[] = [];
+  // At most three attempts — this runs per keystroke behind a debounce.
+  for (let n = tokens.length; n >= 2 && tries.length < 3; n--) tries.push(tokens.slice(0, n).join(" "));
+  if (tries.length === 0) tries.push(cleaned);
+
+  for (const t of tries) {
+    try {
+      const r = await fetch(`${base}/search?q=${encodeURIComponent(t)}`, { headers: H });
+      if (!r.ok) continue;
+      const b = await r.json().catch(() => ({}));
+      if (Array.isArray(b.results) && b.results.length > 0) return b.results.slice(0, limit);
+    } catch { /* try the next, shorter query */ }
+  }
+  return [];
+}
+
+/** Estimate for a propertyId the caller already picked from search results. */
+async function jvEstimateById(propertyId: string): Promise<JvEstimate | null> {
+  const base = await cfg("julyvalue_api_url");
+  const key = await cfg("julyvalue_api_key");
+  if (!base || !key || !propertyId) return null;
+  try {
+    const er = await fetch(`${base}/estimate`, {
+      method: "POST",
+      headers: { "X-API-Key": key, "content-type": "application/json" },
+      body: JSON.stringify({ propertyId }),
+    });
+    if (!er.ok) return null;
+    const est = await er.json().catch(() => null);
+    return est?.estimate ? (est as JvEstimate) : null;
+  } catch { return null; }
+}
+
 /** Search JULY Value and return the estimate for the best unit+city-safe match, or null.
  *  Retries with a "number + first street word" query when the full street line misses
  *  (autocomplete writes "Street"/"Avenue"; listings abbreviate to St/Ave). */
@@ -87,11 +137,38 @@ Deno.serve(async (req: Request) => {
      Powers the buyer-side Valuation tool. Requires a signed-in user but
      touches no hub and writes nothing — it must never mutate someone's
      own home value as a side effect of looking up a listing. */
-  if (action === "lookup") {
+  if (action === "search" || action === "lookup") {
     const authHeader = req.headers.get("Authorization") ?? "";
     const userClient = createClient(URL0, ANON, { global: { headers: { Authorization: authHeader } } });
     const { data: { user } } = await userClient.auth.getUser();
     if (!user) return new Response(JSON.stringify({ error: "unauthorized" }), { status: 401, headers: JSONH });
+
+    /* Autocomplete: only ever offers addresses JULY Value actually holds, which
+       is the difference between picking one and guessing its stored spelling. */
+    if (action === "search") {
+      const rows = await jvSearch(String(body.q ?? ""));
+      return new Response(JSON.stringify({
+        results: rows
+          .filter((r) => r?.propertyId)
+          .map((r) => ({ property_id: String(r.propertyId), address: String(r.address ?? "") })),
+      }), { headers: JSONH });
+    }
+
+    // Picked from autocomplete: no address matching needed, we have the id.
+    const propertyId = body.property_id ? String(body.property_id) : "";
+    if (propertyId) {
+      const picked = await jvEstimateById(propertyId);
+      if (!picked) return new Response(JSON.stringify({ matched: false }), { headers: JSONH });
+      return new Response(JSON.stringify({
+        matched: true,
+        address: picked.address,
+        estimate: Math.round(picked.estimate),
+        low: Math.round(picked.low),
+        high: Math.round(picked.high),
+        confidence: ["low", "medium", "high"].includes(picked.confidence) ? picked.confidence : null,
+        attribution: picked.attribution ?? null,
+      }), { headers: JSONH });
+    }
 
     const address1 = String(body.address1 ?? "").trim();
     if (!address1) return new Response(JSON.stringify({ error: "address1 required" }), { status: 400, headers: JSONH });
