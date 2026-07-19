@@ -268,6 +268,23 @@ OPEN (build roadmap — agreed sequence):
   pattern: key-auth'd envelope create/status) or shares the repo.
 - P3: JULY Lend at pre-approval/renewal (renewal radar from stored
   mortgages), Draft+Sign at offer/listing, Insure at subject removal.
+- **HELCIM CHECKOUT SHIPPED wave 16 (2026-07-19):** token in ho_config
+  (helcim_api_token; validated live). **ho-billing** edge fn: 'checkout'
+  → ensure Helcim customer (by email) → HelcimPay initialize
+  paymentType 'verify' ($0 card capture) → ho_checkouts row holds
+  secret_token; 'confirm' → sha256(jsonData+secret)==hash validation →
+  ensurePlan ("JULY Platform Starter/Pro/Team", 29/59/119 CAD monthly,
+  created lazily via /v2/payment-plans) → POST /v2/subscriptions →
+  entitlement upsert source='purchase'; 'selftest' (cron-secret) proven
+  {"ok":true,"hasToken":true}. **/pro/upgrade**: product picker + tier
+  cards → HelcimPay iframe (start.js) → confirm → active; Signals
+  upsells link here. NOT yet exercised with a real card — Han should
+  run one $29 test purchase and cancel it in Helcim. ALL SIX PERSONA
+  DOMAINS LIVE (julybuyer/julyseller/julyinvestor/julyowner/owneraipro/
+  selleraipro .com). Codes JULY138/JULY188 seeded (188 in-platform ==
+  138; external services live in the label). emailRedirectTo →
+  originating brand domain. Auth redirect list still missing
+  owneraipro.com/** + selleraipro.com/** (Han-side).
 - **ENTITLEMENTS + COMP CODES SHIPPED wave 14:** julybase
   ho_entitlements (user×product buyer|owner|seller|investor × tier
   free|starter|pro|team|included; RLS: read own, self-insert free only;
