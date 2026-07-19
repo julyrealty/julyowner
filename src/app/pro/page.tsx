@@ -8,8 +8,34 @@ import { ArrowUpRight, Flame, UserPlus } from "lucide-react";
 import { DEMO_HUB } from "@/lib/demo";
 
 export default function ProDashboard() {
-  const { profile, contacts, hubs, activities, demo, products } = usePro();
+  const { profile, contacts, hubs, activities, demo, products, providers, advisors, recommended } = usePro();
   const q = demo ? "?demo=1" : "";
+
+  // Setup gaps, each one something a client actually notices in their hub.
+  // Only incomplete items appear, and the whole card disappears once they're done.
+  const p = profile as { phone?: string | null; logo_url?: string | null } | null;
+  const setup = [
+    !p?.phone && {
+      title: "Add your phone number",
+      why: "Without it your clients can only reach you by email — their hub shows no number at all.",
+      href: `/pro/profile${q}`, cta: "Add it",
+    },
+    recommended.length === 0 && {
+      title: "Recommend your first trade",
+      why: "Home Services is empty in every client hub until you vouch for someone.",
+      href: `/pro/providers${q}`, cta: "Pick your trades",
+    },
+    advisors.length === 0 && {
+      title: "Add a lending partner",
+      why: "Mortgage questions have nowhere to go, and renewal conversations stall.",
+      href: `/pro/advisors${q}`, cta: "Add an advisor",
+    },
+    contacts.length > 0 && contacts.every((c) => c.joined === 0 && c.pending === 0) && {
+      title: "Invite your first homeowner",
+      why: "Contacts only become hubs once they're invited and claim their home.",
+      href: `/pro/contacts${q}`, cta: "Send an invite",
+    },
+  ].filter(Boolean) as { title: string; why: string; href: string; cta: string }[];
 
   // Real estimated values only — a hub with no valuation yet (e.g. a buyer's
   // search HQ) contributes nothing rather than a made-up average.
@@ -46,6 +72,27 @@ export default function ProDashboard() {
         </div>
         <Link href={`/pro/contacts${q}`} className="btn btn-dark btn-md"><UserPlus size={16} /> Invite homeowner</Link>
       </div>
+
+      {/* SETUP — only while something a client would notice is still missing */}
+      {setup.length > 0 && (
+        <Card className="mt-6 p-5">
+          <p className="text-sm font-extrabold">Finish setting up your practice</p>
+          <p className="mt-0.5 text-[13px] text-gray-500">
+            {setup.length} thing{setup.length === 1 ? "" : "s"} your homeowners would notice.
+          </p>
+          <div className="mt-4 divide-y divide-line">
+            {setup.map((s) => (
+              <div key={s.title} className="flex flex-wrap items-center justify-between gap-3 py-3 first:pt-0 last:pb-0">
+                <div className="min-w-0">
+                  <p className="text-sm font-bold">{s.title}</p>
+                  <p className="mt-0.5 text-[12px] leading-relaxed text-gray-500">{s.why}</p>
+                </div>
+                <Link href={s.href} className="btn btn-ghost btn-sm shrink-0">{s.cta} <ArrowUpRight size={14} /></Link>
+              </div>
+            ))}
+          </div>
+        </Card>
+      )}
 
       {/* STATS */}
       <div className="mt-6 grid grid-cols-2 gap-3 lg:grid-cols-4">
