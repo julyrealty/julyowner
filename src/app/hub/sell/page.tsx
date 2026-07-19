@@ -335,7 +335,8 @@ export default function SellPage() {
                 </p>
                 <ul className="mt-2 space-y-2">
                   {comps.slice(0, 4).map((s) => {
-                    const delta = listPrice - s.price;
+                    // How the comp's sale price compares to YOUR trial list price.
+                    const delta = s.price - listPrice;
                     return (
                       <li key={s.address} className="flex items-center justify-between gap-2 text-sm">
                         <span className="min-w-0 truncate font-semibold">{s.address}</span>
@@ -493,7 +494,7 @@ export default function SellPage() {
               <Card className="mt-3 p-4">
                 <p className="text-sm font-extrabold text-gray-700">Skip these for now</p>
                 <p className="mt-1 text-[13px] leading-relaxed text-gray-500">
-                  {`${skipList.map((i) => i.title.toLowerCase()).join(" and ")} add real value — but they take many months and permits.`}
+                  {`${skipList.map((i) => i.title.toLowerCase()).join(" and ")} add real value — but they take many months and permits. `}
                   On a selling timeline, buyers won&apos;t pay you back for unfinished plans. Mention the potential in the listing instead.
                 </p>
               </Card>
