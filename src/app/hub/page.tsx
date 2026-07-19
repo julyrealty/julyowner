@@ -1,7 +1,7 @@
 "use client";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
-import { ChevronRight, Clock, Mail, Phone } from "lucide-react";
+import { ChevronRight, Clock, Mail, Phone, ArrowRight } from "lucide-react";
 import { useHub } from "@/lib/store";
 import { cad, compact, fmtDate, valueSeries } from "@/lib/calc";
 import { fetchCityMarket, type CityMarket } from "@/lib/platform";
@@ -36,8 +36,13 @@ export default function HubDashboard() {
   const equityPct = value ? equity / value : 0;
   const gain = value - (hub?.purchase_price ?? value);
   const nextTasks = tasks.filter((t) => t.status === "pending").slice(0, 3);
+  // A freshly claimed hub has never had a task — that's "not set up yet", not "all done".
+  const freshHub = tasks.length === 0;
+  const noMortgage = mortgages.length === 0;
+  // Without a purchase date there is no real trend to draw; don't invent a decade of it.
+  const canChart = !!hub?.purchase_date && !!hub?.purchase_price;
   const series = useMemo(
-    () => (hub ? valueSeries(hub.purchase_price ?? value * 0.7, hub.purchase_date ?? "2016-01-01", value) : []),
+    () => (hub && hub.purchase_date && hub.purchase_price ? valueSeries(hub.purchase_price, hub.purchase_date, value) : []),
     [hub, value],
   );
   const potential = Math.round(value * 1.11);
@@ -89,9 +94,20 @@ export default function HubDashboard() {
           <section>
             <SectionLabel right={<Link href={`/hub/manage${q}`} className="link text-xs">View all</Link>}>What&apos;s next</SectionLabel>
             <div className="space-y-2">
-              {nextTasks.length === 0 && (
+              {nextTasks.length === 0 && (freshHub ? (
+                <Card className="p-5">
+                  <p className="text-sm font-bold">Let&apos;s get your home set up</p>
+                  <p className="mt-1 text-[13px] leading-relaxed text-gray-500">
+                    Add your furnace, water heater, and appliances and this list fills itself — each item
+                    brings its own maintenance schedule, so nothing creeps up on you.
+                  </p>
+                  <Link href={`/hub/home/inventory${q}`} className="btn btn-primary btn-sm mt-3">
+                    Start my home inventory <ArrowRight size={14} />
+                  </Link>
+                </Card>
+              ) : (
                 <Card className="p-5 text-sm text-gray-500">All caught up. Your home thanks you. 🏡</Card>
-              )}
+              ))}
               {nextTasks.map((t) => (
                 <Card key={t.id} className="flex items-center gap-3 p-4">
                   <button
@@ -143,8 +159,12 @@ export default function HubDashboard() {
                   )}
                 </div>
               </div>
-              <div className="mt-3"><Sparkline data={series} /></div>
-              <p className="mt-1 text-right text-[11px] text-gray-400">since you bought in {hub?.purchase_date ? fmtDate(hub.purchase_date).split(",")[1] : "—"}</p>
+              {canChart && (
+                <>
+                  <div className="mt-3"><Sparkline data={series} /></div>
+                  <p className="mt-1 text-right text-[11px] text-gray-400">since you bought in {fmtDate(hub!.purchase_date!).split(",")[1]}</p>
+                </>
+              )}
             </Card>
             {demo && (
               <Card className="mt-3 p-5">
@@ -207,17 +227,29 @@ export default function HubDashboard() {
               <div className="p-5">
                 <div className="flex items-baseline justify-between">
                   <p className="text-sm font-semibold text-gray-500">Home value</p>
-                  <p className="text-xs font-bold text-emerald-600">▲ {cad(gain)} since purchase</p>
+                  {hub?.purchase_price ? (
+                    <p className={`text-xs font-bold ${gain >= 0 ? "text-emerald-600" : "text-coral"}`}>
+                      {gain >= 0 ? "▲" : "▼"} {cad(Math.abs(gain))} since purchase
+                    </p>
+                  ) : null}
                 </div>
                 <p className="tabular mt-1 text-3xl font-extrabold text-teal-deep">{cad(value)}</p>
               </div>
               <div className="p-5">
                 <div className="flex items-baseline justify-between">
                   <p className="text-sm font-semibold text-gray-500">Equity</p>
-                  <p className="text-xs font-bold text-gray-400">{Math.round(equityPct * 100)}% of home value</p>
+                  {!noMortgage && <p className="text-xs font-bold text-gray-400">{Math.round(equityPct * 100)}% of home value</p>}
                 </div>
                 <p className="tabular mt-1 text-3xl font-extrabold">{cad(equity)}</p>
-                <Progress value={equityPct * 100} className="mt-3" />
+                {noMortgage ? (
+                  // No loan on file yet — don't imply they own outright.
+                  <p className="mt-2 text-[12px] leading-relaxed text-gray-500">
+                    Assumes nothing owed. <Link href={`/hub/save${q}`} className="link">Add your mortgage</Link> and
+                    this becomes your real equity — plus a renewal reminder before your lender&apos;s offer lands.
+                  </p>
+                ) : (
+                  <Progress value={equityPct * 100} className="mt-3" />
+                )}
               </div>
             </Card>
           </section>
