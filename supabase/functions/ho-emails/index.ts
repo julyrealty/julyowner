@@ -259,7 +259,9 @@ Deno.serve(async (req: Request) => {
           .select("first_name,last_name,phone,email,brand_color").eq("id", h.pro_id).maybeSingle();
         if (pro) {
           brand = pro.brand_color || brand;
-          proLine = `<p style=\"font-size:13px;color:#5a6462;border-top:1px solid #e6e8e6;padding-top:14px;margin-top:18px\">Questions about your home or the market? <b>${esc(pro.first_name)} ${esc(pro.last_name)}</b> · ${esc(pro.phone ?? "")} · ${esc(pro.email)}</p>`;
+          // Only join contact bits that exist — a missing phone must not leave a dangling "·".
+          const contact = [pro.phone, pro.email].filter(Boolean).map((x) => esc(x)).join(" · ");
+          proLine = `<p style=\"font-size:13px;color:#5a6462;border-top:1px solid #e6e8e6;padding-top:14px;margin-top:18px\">Questions about your home or the market? <b>${esc(pro.first_name)} ${esc(pro.last_name)}</b>${contact ? ` · ${contact}` : ""}</p>`;
         }
       }
       const gain = h.purchase_price ? value - h.purchase_price : null;

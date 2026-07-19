@@ -257,17 +257,39 @@ export default function HubDashboard() {
           <section>
             <SectionLabel>Connect with advisors</SectionLabel>
             <Card className="p-5">
-              <div className="flex items-center gap-3">
-                <Avatar name={`${pro?.first_name} ${pro?.last_name}`} size={46} />
-                <div className="min-w-0">
-                  <p className="truncate font-bold">{pro?.first_name} {pro?.last_name}</p>
-                  <p className="truncate text-xs text-gray-500">{(pro as { job_title?: string })?.job_title || "Real Estate Advisor"} · {(pro as { company?: string })?.company || "JULY Realty"}</p>
-                </div>
-              </div>
-              <div className="mt-3 flex items-center gap-4 text-xs font-semibold text-gray-500">
-                <span className="flex items-center gap-1"><Phone size={12} /> {(pro as { phone?: string })?.phone || "(604) 555-0100"}</span>
-                <a className="link flex items-center gap-1 text-xs" href={`mailto:${pro?.email}`}><Mail size={12} /> Email</a>
-              </div>
+              {(() => {
+                const p = pro as { first_name?: string; last_name?: string; job_title?: string; company?: string; phone?: string; email?: string } | null;
+                const name = [p?.first_name, p?.last_name].filter(Boolean).join(" ");
+                if (!name) {
+                  return (
+                    <p className="text-sm text-gray-500">
+                      No advisor is attached to this hub yet — send a message and the JULY team will pick it up.
+                    </p>
+                  );
+                }
+                return (
+                  <>
+                    <div className="flex items-center gap-3">
+                      <Avatar name={name} size={46} />
+                      <div className="min-w-0">
+                        <p className="truncate font-bold">{name}</p>
+                        <p className="truncate text-xs text-gray-500">{p?.job_title || "Real Estate Advisor"} · {p?.company || "JULY Realty"}</p>
+                      </div>
+                    </div>
+                    {/* Never invent a phone number for a real person — show it only if it exists. */}
+                    <div className="mt-3 flex items-center gap-4 text-xs font-semibold text-gray-500">
+                      {p?.phone && (
+                        <a className="link flex items-center gap-1 text-xs" href={`tel:${p.phone.replace(/[^\d+]/g, "")}`}>
+                          <Phone size={12} /> {p.phone}
+                        </a>
+                      )}
+                      {p?.email && (
+                        <a className="link flex items-center gap-1 text-xs" href={`mailto:${p.email}`}><Mail size={12} /> Email</a>
+                      )}
+                    </div>
+                  </>
+                );
+              })()}
               {advisor && (
                 <div className="mt-4 border-t border-line pt-4">
                   <div className="flex items-center gap-3">
