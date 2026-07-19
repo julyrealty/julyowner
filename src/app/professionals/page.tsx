@@ -186,7 +186,7 @@ export default function ProfessionalsPage() {
       </section>
 
       <footer className="dark-panel py-6 text-center text-xs text-[#8f887b]">
-        © {new Date().getFullYear()} JULY Realty · JULYOwner
+        © {new Date().getFullYear()} JULY Marketing Inc. · JULYOwner · Brokerage services by JULY Realty
       </footer>
     </main>
   );

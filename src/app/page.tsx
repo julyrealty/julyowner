@@ -266,7 +266,7 @@ export default function Landing() {
           </div>
         </div>
         <div className="border-t border-white/10 py-4 text-center text-xs text-[#8f887b]">
-          © {new Date().getFullYear()} JULY Realty · Vancouver, BC
+          © {new Date().getFullYear()} JULY Marketing Inc. · Brokerage services by JULY Realty · Vancouver, BC
         </div>
       </footer>
     </main>

@@ -178,7 +178,7 @@ export default function WorthPage() {
 
       {/* FOOTER — mini */}
       <footer className="border-t border-white/10 py-4 text-center text-xs text-[#8f887b]">
-        © {new Date().getFullYear()} JULY Realty · Vancouver, BC
+        © {new Date().getFullYear()} JULY Marketing Inc. · Evaluations by JULY Realty · Vancouver, BC
       </footer>
     </main>
   );
