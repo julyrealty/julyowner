@@ -2,13 +2,16 @@
 import { Suspense, useMemo, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { useHub } from "@/lib/store";
-import { PROVIDER_CATEGORIES } from "@/lib/demo";
+import { PROVIDER_CATEGORIES, BUYER_PROVIDER_CATEGORIES } from "@/lib/demo";
 import { Card, Modal, Pill } from "@/components/ui";
 import { Search, ThumbsUp, Phone, ShieldCheck } from "lucide-react";
 
 function ServicesInner() {
   const params = useSearchParams();
-  const { pro, createLead, providers, demo } = useHub();
+  const { pro, createLead, providers, demo, hub } = useHub();
+  // A buyer needs lawyers, lenders and inspectors — not gutter cleaners.
+  const isBuyer = hub?.journey === "buying";
+  const categories = isBuyer ? BUYER_PROVIDER_CATEGORIES : PROVIDER_CATEGORIES;
   const [cat, setCat] = useState<string | null>(params.get("cat"));
   const [qtext, setQtext] = useState("");
   const [req, setReq] = useState<string | null>(null);
@@ -28,7 +31,7 @@ function ServicesInner() {
       <section className="bg-gradient-to-r from-teal-deep to-teal text-white">
         <div className="container-x py-8 sm:py-10">
           <h1 className="text-3xl font-extrabold tracking-tight sm:text-4xl">Home Services</h1>
-          <p className="mt-1 text-sm text-white/70">Find help when you need it — starting with pros your advisor trusts.</p>
+          <p className="mt-1 text-sm text-white/70">{isBuyer ? "The people you will need between offer and possession day." : "Find help when you need it — starting with pros your advisor trusts."}</p>
         </div>
       </section>
 
@@ -41,7 +44,7 @@ function ServicesInner() {
         </div>
         <div className="no-bar mt-3 flex gap-1.5 overflow-x-auto pb-1">
           <button onClick={() => setCat(null)} className={`btn btn-sm shrink-0 ${!cat ? "btn-primary" : "btn-ghost"}`}>All</button>
-          {PROVIDER_CATEGORIES.map((c) => (
+          {categories.map((c) => (
             <button key={c} onClick={() => setCat(c === cat ? null : c)} className={`btn btn-sm shrink-0 ${cat === c ? "btn-primary" : "btn-ghost"}`}>{c}</button>
           ))}
         </div>

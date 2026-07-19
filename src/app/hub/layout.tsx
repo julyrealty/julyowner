@@ -4,7 +4,7 @@ import Link from "next/link";
 import { usePathname, useSearchParams } from "next/navigation";
 import {
   Home, LayoutDashboard, Wrench, PiggyBank, TrendingUp, House,
-  LogOut, RotateCcw, Sparkles, Tag, Search, FolderOpen, MessageSquare,
+  LogOut, RotateCcw, Sparkles, Tag, Search, MessageSquare, LineChart,
 } from "lucide-react";
 import { HubProvider, useHub, resetDemo } from "@/lib/store";
 import { Spinner, Modal } from "@/components/ui";
@@ -69,7 +69,9 @@ function Shell({ children }: { children: React.ReactNode }) {
   const buying = !!hub?.buying_started_at || hub?.journey === "buying";
   const BUYER_NAV = [
     { href: "/hub/buying", label: "My Search", icon: Search },
-    { href: "/hub/home/documents", label: "Documents", icon: FolderOpen },
+    { href: "/hub/value", label: "Valuation", icon: LineChart },
+    { href: "/hub/scan", label: "AI Review", icon: Sparkles },
+    { href: "/hub/services", label: "Services", icon: Wrench },
     { href: "/hub/messages", label: "Messages", icon: MessageSquare },
   ];
   const nav = isPureBuyer
@@ -188,7 +190,7 @@ function Shell({ children }: { children: React.ReactNode }) {
             <Link key={n.href} href={`${n.href}${q}`}
               className={`flex flex-col items-center gap-0.5 py-2.5 text-[10px] font-bold ${active(n.href) ? "text-teal" : "text-gray-400"}`}>
               <n.icon size={20} strokeWidth={active(n.href) ? 2.6 : 2} />
-              {({ "Manage Home": "Manage", "Save Money": "Save", "Build Wealth": "Wealth" } as Record<string, string>)[n.label] ?? n.label}
+              {({ "Manage Home": "Manage", "Save Money": "Save", "Build Wealth": "Wealth", "AI Review": "AI", "My Search": "Search" } as Record<string, string>)[n.label] ?? n.label}
             </Link>
           ))}
         </div>

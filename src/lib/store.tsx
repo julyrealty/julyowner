@@ -103,7 +103,7 @@ type HubActions = {
   removeInventory: (id: string) => Promise<void>;
   setTaskStatus: (id: string, status: Task["status"]) => Promise<void>;
   addTask: (t: { title: string; due_date?: string; minutes?: number; frequency?: string }) => Promise<void>;
-  addDoc: (d: { folder: string; name: string; size_bytes: number; tags?: string[] }, file?: File) => Promise<void>;
+  addDoc: (d: { folder: string; name: string; size_bytes: number; tags?: string[] }, file?: File) => Promise<Doc>;
   removeDoc: (id: string) => Promise<void>;
   docUrl: (id: string) => Promise<string | null>;
   updateMortgage: (m: Partial<Mortgage> & { id: string }) => Promise<void>;
@@ -387,8 +387,8 @@ export function HubProvider({ children, demo }: { children: React.ReactNode; dem
     },
     async addDoc(d, file) {
       const doc: Doc = { id: uid(), folder: d.folder, name: d.name, size_bytes: d.size_bytes, tags: d.tags || [], created_at: new Date().toISOString() };
-      if (state.demo) persistDemo({ docs: [doc, ...state.docs] });
-      else if (state.hub) {
+      if (state.demo) { persistDemo({ docs: [doc, ...state.docs] }); return doc; }
+      if (state.hub) {
         let storage_path: string | null = null;
         if (file) {
           storage_path = `${state.hub.id}/${uid()}-${d.name.replace(/[^\w.\-]+/g, "_")}`;
@@ -396,8 +396,12 @@ export function HubProvider({ children, demo }: { children: React.ReactNode; dem
           if (upErr) storage_path = null;
         }
         const { data } = await sb().from("ho_documents").insert({ ...doc, id: undefined, created_at: undefined, hub_id: state.hub.id, storage_path }).select().single();
-        setState((s) => ({ ...s, docs: [(data as Doc) || doc, ...s.docs] }));
+        const saved = (data as Doc) || doc;
+        setState((s) => ({ ...s, docs: [saved, ...s.docs] }));
+        // Returned so an upload can flow straight into a scan without re-finding it.
+        return saved;
       }
+      return doc;
     },
     async removeDoc(id) {
       if (state.demo) { persistDemo({ docs: state.docs.filter((d) => d.id !== id) }); return; }

@@ -137,6 +137,14 @@ export const PROVIDER_CATEGORIES = [
   "Movers", "Home Inspectors", "Locksmiths",
 ];
 
+/** Buying needs a different bench than owning — the people you hire between
+    "I like this one" and possession day. Shown on buyer hubs' Services page. */
+export const BUYER_PROVIDER_CATEGORIES = [
+  "Mortgage Brokers", "Lenders", "Real Estate Lawyers", "Notaries",
+  "Home Inspectors", "Appraisers", "Insurance Brokers", "Surveyors",
+  "Movers", "Contractors", "Handyman", "Locksmiths",
+];
+
 /* ------------------------------------------------------------------ */
 
 export const MARKET = {
@@ -261,25 +269,27 @@ export const DEMO_ACTIVITIES = [
   { id: "a6", hub: "2718 W 21st Ave", hubId: "h1", member: "Dana Whitfield", action: "Clicked Sell My Home", detail: "Lead created", when: "2026-07-10T16:03:00Z" },
 ];
 
-/** Buying HQ demo — what a linked JULY Search account syncs into the hub. */
+/** Buying HQ demo — what a linked JULY Search account syncs into the hub.
+    Uses REAL ddf_listings keys, addresses and photos so every card in the demo
+    clicks through to a live page on search.july.ca instead of a dead id. */
 export const DEMO_BUYER = {
   watched: [
-    { ref: "jsw-4821", kind: "listing", label: "302-2159 W 6th Ave · 2 bed condo", last_price: 1048000, last_status: "Active", created_at: "2026-07-12T19:40:00Z" },
-    { ref: "jsw-4783", kind: "listing", label: "18-3990 Quebec St · 3 bed townhome", last_price: 1268000, last_status: "Active", created_at: "2026-07-08T02:15:00Z" },
-    { ref: "jsw-4866", kind: "listing", label: "506-1688 Cypress St · 1 bed + den condo", last_price: 754900, last_status: "Active", created_at: "2026-07-15T21:05:00Z" },
+    { ref: "29774236", kind: "listing", label: "311 5555 Victoria Drive, Vancouver", last_price: 608000, last_status: "Active", created_at: "2026-07-12T19:40:00Z", photo: "https://ddfcdn.realtor.ca/listings/TS639148903710000000/reb89/highres/3/R3125423_1.jpg", beds: 2, baths: 2, city: "Vancouver", list_price: 608000 },
+    { ref: "29803746", kind: "listing", label: "505 9633 Manchester Drive, Burnaby", last_price: 602000, last_status: "Active", created_at: "2026-07-08T02:15:00Z", photo: "https://ddfcdn.realtor.ca/listings/TS639153446020000000/reb89/highres/7/R3127867_1.jpg", beds: 2, baths: 2, city: "Burnaby", list_price: 602000 },
+    { ref: "30033645", kind: "listing", label: "1304 1333 W Georgia Street, Vancouver", last_price: 600000, last_status: "Active", created_at: "2026-07-15T21:05:00Z", photo: "https://ddfcdn.realtor.ca/listings/TS639196521530000000/reb89/highres/9/R3146289_1.jpg", beds: 1, baths: 1, city: "Vancouver", list_price: 600000 },
   ],
   searches: [
-    { name: "Kits condos under $1.1M", criteria: {}, alert_new: true, alert_sold: true, created_at: "2026-06-28T18:30:00Z" },
-    { name: "Main St townhomes · 3 bed", criteria: {}, alert_new: true, alert_sold: false, created_at: "2026-07-05T16:10:00Z" },
+    { name: "Vancouver condos under $700K", criteria: {}, alert_new: true, alert_sold: true, created_at: "2026-06-28T18:30:00Z" },
+    { name: "Burnaby · 2 bed · near SkyTrain", criteria: {}, alert_new: true, alert_sold: false, created_at: "2026-07-05T16:10:00Z" },
   ],
   tours: [
-    { address: "302-2159 W 6th Ave", city: "Vancouver", list_price: 1048000, status: "requested", preferred_times: "Sat afternoon", created_at: "2026-07-15T22:20:00Z" },
+    { address: "311 5555 Victoria Drive", city: "Vancouver", list_price: 608000, status: "requested", preferred_times: "Sat afternoon", created_at: "2026-07-15T22:20:00Z" },
   ],
   viewed: [
-    { ref: "jsw-4901", viewed_at: "2026-07-18T23:45:00Z", label: "212-2665 W Broadway · 2 bed condo", photo: null, beds: 2, baths: 2, city: "Vancouver", list_price: 998000 },
-    { ref: "jsw-4821", viewed_at: "2026-07-18T04:10:00Z", label: "302-2159 W 6th Ave · 2 bed condo", photo: null, beds: 2, baths: 2, city: "Vancouver", list_price: 1048000 },
-    { ref: "jsw-4877", viewed_at: "2026-07-16T20:30:00Z", label: "7-238 E 10th Ave · 2 bed rowhome", photo: null, beds: 2, baths: 1, city: "Vancouver", list_price: 1089000 },
-    { ref: "jsw-4750", viewed_at: "2026-07-14T18:05:00Z", label: "1104-1480 Howe St · 1 bed + den", photo: null, beds: 1, baths: 1, city: "Vancouver", list_price: 829900 },
+    { ref: "29890966", viewed_at: "2026-07-18T23:45:00Z", label: "1408 5685 Halley Avenue, Burnaby", photo: "https://ddfcdn.realtor.ca/listings/TS639169992540000000/reb89/highres/6/R3135026_1.jpg", beds: 1, baths: 1, city: "Burnaby", list_price: 605000 },
+    { ref: "29774236", viewed_at: "2026-07-18T04:10:00Z", label: "311 5555 Victoria Drive, Vancouver", photo: "https://ddfcdn.realtor.ca/listings/TS639148903710000000/reb89/highres/3/R3125423_1.jpg", beds: 2, baths: 2, city: "Vancouver", list_price: 608000 },
+    { ref: "29677589", viewed_at: "2026-07-16T20:30:00Z", label: "3006 7388 Kingsway, Burnaby", photo: "https://ddfcdn.realtor.ca/listings/TS639159379250000000/reb89/highres/6/R3117716_1.jpg", beds: 1, baths: 1, city: "Burnaby", list_price: 608000 },
+    { ref: "29611740", viewed_at: "2026-07-14T18:05:00Z", label: "415 6900 Pearson Way, Richmond", photo: "https://ddfcdn.realtor.ca/listings/TS639118914540000000/reb89/highres/7/R3112157_1.jpg", beds: 1, baths: 1, city: "Richmond", list_price: 608000 },
   ],
 };
 

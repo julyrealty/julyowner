@@ -11,6 +11,8 @@ import { cad, compact, purchasingPower, fmtDate, monthlyPayment } from "@/lib/ca
 import { Card, SectionLabel, Avatar, Pill } from "@/components/ui";
 
 const SEARCH_URL = "https://search.july.ca";
+/** watched_items.ref / viewed_items.ref is the MLS number JULY Search routes on. */
+const listingUrl = (ref: string) => `${SEARCH_URL}/listings/mls/${encodeURIComponent(ref)}`;
 const AIPRO_URL = "https://buyeraipro.com";
 const AFF_RATE = 4.19; // 3-yr fixed — mirrors the market rate strip
 const AFF_AMORT = 25;
@@ -229,7 +231,8 @@ export default function BuyingPage() {
                 ) : (
                   <div className="grid gap-3 sm:grid-cols-2">
                     {buyer.watched.map((w) => (
-                      <Card key={w.ref} className="overflow-hidden">
+                      <a key={w.ref} href={listingUrl(w.ref)} target="_blank" rel="noopener noreferrer"
+                        className="card overflow-hidden transition hover:border-teal">
                         <ListingThumb src={w.photo} alt={w.label || "Watched home"} className="h-32 w-full" />
                         <div className="p-4">
                           <div className="flex items-start justify-between gap-2">
@@ -243,10 +246,12 @@ export default function BuyingPage() {
                             <span className="tabular text-lg font-extrabold">
                               {(w.last_price ?? w.list_price) != null ? compact((w.last_price ?? w.list_price)!) : "—"}
                             </span>
-                            <span className="text-[11px] text-gray-400">saved {fmtDate(w.created_at)}</span>
+                            <span className="flex items-center gap-1 text-[11px] text-gray-400">
+                              saved {fmtDate(w.created_at)} <ExternalLink size={11} />
+                            </span>
                           </div>
                         </div>
-                      </Card>
+                      </a>
                     ))}
                   </div>
                 )}
@@ -265,7 +270,8 @@ export default function BuyingPage() {
                 ) : (
                   <Card className="divide-y divide-line">
                     {buyer.viewed.map((v) => (
-                      <div key={v.ref} className="flex items-center gap-3 p-3">
+                      <a key={v.ref} href={listingUrl(v.ref)} target="_blank" rel="noopener noreferrer"
+                        className="flex items-center gap-3 p-3 transition hover:bg-gray-50">
                         <ListingThumb src={v.photo} alt={v.label || "Viewed home"} className="h-12 w-16 shrink-0 rounded-lg" />
                         <div className="min-w-0 flex-1">
                           <p className="truncate text-sm font-bold">{v.label || "Viewed listing"}</p>
@@ -276,7 +282,8 @@ export default function BuyingPage() {
                         <span className="tabular shrink-0 text-sm font-extrabold">
                           {v.list_price != null ? compact(v.list_price) : ""}
                         </span>
-                      </div>
+                        <ExternalLink size={13} className="shrink-0 text-gray-300" />
+                      </a>
                     ))}
                   </Card>
                 )}
