@@ -7,25 +7,37 @@ import { findCatalogItem } from "@/lib/demo";
 import { Card, Modal, Field, Pill, Progress } from "@/components/ui";
 import { HomeSubnav } from "@/components/home-subnav";
 import { ScanFlow } from "@/components/scan-flow";
-import { Umbrella, ShieldCheck, FolderOpen, FileText, UploadCloud, Trash2, Plus, ChevronLeft, Sparkles, Check, AlertTriangle } from "lucide-react";
+import { Umbrella, ShieldCheck, FolderOpen, FileText, UploadCloud, Trash2, Plus, ChevronLeft, Sparkles, Check, AlertTriangle, FileSearch, ScrollText, Building2, Loader2 } from "lucide-react";
 
-const BUILT_IN = ["Insurance", "Warranty"];
+// A buyer's paperwork is the purchase, not the policies they don't have yet.
+const OWNER_FOLDERS = ["Insurance", "Warranty"];
+const BUYER_FOLDERS = ["Purchase", "Strata", "Inspection", "Title"];
 
 export default function DocumentsPage() {
-  const { docs, addDoc, removeDoc, docUrl, demo, hub } = useHub();
+  const { docs, addDoc, removeDoc, docUrl, demo, hub, scans, loadScans } = useHub();
   const isPureBuyer = hub?.journey === "buying";
   const [folder, setFolder] = useState<string | null>(null);
   const [newFolder, setNewFolder] = useState(false);
   const [drag, setDrag] = useState(false);
   const [scanDoc, setScanDoc] = useState<Doc | null>(null);
+  const [review, setReview] = useState<(typeof scans)[number] | null>(null);
   const fileRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => { void loadScans(); }, [loadScans]);
+
+  /** Newest review per document, so a file can show its result inline. */
+  const reviewByDoc = useMemo(() => {
+    const m = new Map<string, (typeof scans)[number]>();
+    for (const s of scans) if (s.document_id && !m.has(s.document_id)) m.set(s.document_id, s);
+    return m;
+  }, [scans]);
 
   const folders = useMemo(() => {
     const map = new Map<string, number>();
-    BUILT_IN.forEach((f) => map.set(f, 0));
+    (isPureBuyer ? BUYER_FOLDERS : OWNER_FOLDERS).forEach((f) => map.set(f, 0));
     docs.forEach((d) => map.set(d.folder, (map.get(d.folder) || 0) + 1));
     return [...map.entries()];
-  }, [docs]);
+  }, [docs, isPureBuyer]);
 
   const inFolder = docs.filter((d) => d.folder === folder);
 
@@ -47,7 +59,9 @@ export default function DocumentsPage() {
     (demo || !!(d as Doc & { storage_path?: string | null }).storage_path);
 
   const iconFor = (f: string) =>
-    f === "Insurance" ? Umbrella : f === "Warranty" ? ShieldCheck : FolderOpen;
+    f === "Insurance" ? Umbrella : f === "Warranty" ? ShieldCheck
+      : f === "Inspection" ? FileSearch : f === "Title" ? ScrollText
+        : f === "Strata" ? Building2 : FolderOpen;
 
   return (
     <div>
@@ -100,19 +114,58 @@ export default function DocumentsPage() {
               {inFolder.length === 0 && (
                 <Card className="p-8 text-center text-sm text-gray-500">Nothing here yet — drop a file below.</Card>
               )}
-              {inFolder.map((d) => (
-                <Card key={d.id} className="flex items-center gap-3 p-4">
-                  <FileText size={18} className="shrink-0 text-coral" />
-                  <button className="min-w-0 flex-1 text-left" onClick={() => openDoc(d.id)} title={demo ? "Stored for this browser session" : "Open file"}>
-                    <p className="truncate text-sm font-bold hover:text-teal">{d.name}</p>
-                    <p className="text-xs text-gray-400">{(d.size_bytes / 1024).toFixed(0)} KB · added {relTime(d.created_at)}</p>
-                  </button>
-                  {canScan(d) && (
-                    <button className="shrink-0 text-gray-300 hover:text-teal" title="AI scan" onClick={() => setScanDoc(d)}><Sparkles size={16} /></button>
-                  )}
-                  <button className="shrink-0 text-gray-300 hover:text-coral" title="Delete" onClick={() => removeDoc(d.id)}><Trash2 size={16} /></button>
-                </Card>
-              ))}
+              {inFolder.map((d) => {
+                const rev = reviewByDoc.get(d.id);
+                return (
+                  <Card key={d.id} className="p-4">
+                    <div className="flex items-center gap-3">
+                      <FileText size={18} className="shrink-0 text-coral" />
+                      <button className="min-w-0 flex-1 text-left" onClick={() => openDoc(d.id)} title={demo ? "Stored for this browser session" : "Open file"}>
+                        <p className="truncate text-sm font-bold hover:text-teal">{d.name}</p>
+                        <p className="text-xs text-gray-400">{(d.size_bytes / 1024).toFixed(0)} KB · added {relTime(d.created_at)}</p>
+                      </button>
+                      {canScan(d) && !rev && (
+                        <button className="shrink-0 text-gray-300 hover:text-teal" title="AI review" onClick={() => setScanDoc(d)}><Sparkles size={16} /></button>
+                      )}
+                      <button className="shrink-0 text-gray-300 hover:text-coral" title="Delete" onClick={() => removeDoc(d.id)}><Trash2 size={16} /></button>
+                    </div>
+
+                    {/* The AI review lives with the document it came from. */}
+                    {rev && (
+                      <div className="mt-3 border-t border-line pt-3">
+                        {rev.status === "pending" && (
+                          <p className="flex items-center gap-2 text-[13px] text-gray-500">
+                            <Loader2 size={14} className="animate-spin text-teal" />
+                            AI review in progress — we&apos;ll email you when it&apos;s ready.
+                          </p>
+                        )}
+                        {rev.status === "failed" && (
+                          <div className="flex flex-wrap items-center gap-2">
+                            <p className="flex items-center gap-2 text-[13px] text-coral">
+                              <AlertTriangle size={14} /> {rev.error || "That review didn't finish."}
+                            </p>
+                            <button className="btn btn-ghost btn-sm" onClick={() => setScanDoc(d)}>Run it again</button>
+                          </div>
+                        )}
+                        {rev.status === "complete" && (
+                          <>
+                            <div className="flex flex-wrap items-center gap-2">
+                              <Pill tone="teal"><Check size={11} /> AI review ready</Pill>
+                              <span className="text-[11px] text-gray-400">{relTime(rev.completed_at ?? rev.created_at)}</span>
+                            </div>
+                            {rev.summary && (
+                              <p className="mt-2 line-clamp-3 text-[13px] leading-relaxed text-gray-600">{rev.summary}</p>
+                            )}
+                            <button className="link mt-2 text-[13px] font-bold" onClick={() => setReview(rev)}>
+                              Read the full review →
+                            </button>
+                          </>
+                        )}
+                      </div>
+                    )}
+                  </Card>
+                );
+              })}
               <div
                 onClick={() => fileRef.current?.click()}
                 className="cursor-pointer rounded-2xl border-2 border-dashed border-line bg-white p-6 text-center text-sm text-gray-500 hover:border-teal"
@@ -125,13 +178,41 @@ export default function DocumentsPage() {
         )}
       </div>
 
+      {/* Full review, opened from the document it belongs to. */}
+      <Modal open={!!review} onClose={() => setReview(null)} title={review?.document_name || "AI review"}>
+        {review && (
+          <div className="space-y-4">
+            <Pill tone="teal"><Check size={11} /> Review complete</Pill>
+            {review.summary && (
+              <div className="max-h-56 overflow-y-auto whitespace-pre-wrap rounded-xl bg-cream p-4 text-sm leading-relaxed">
+                {review.summary}
+              </div>
+            )}
+            {review.findings?.length > 0 && (
+              <div>
+                <p className="section-label mb-2">Key findings</p>
+                <ul className="space-y-1.5">
+                  {review.findings.map((f, i) => (
+                    <li key={i} className="flex gap-2 text-sm"><span className="mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full bg-teal" />{f}</li>
+                  ))}
+                </ul>
+              </div>
+            )}
+            <p className="text-[11px] leading-relaxed text-gray-400">
+              An AI reading of this document — useful for knowing what to ask, not a substitute for
+              professional advice.
+            </p>
+          </div>
+        )}
+      </Modal>
+
       <Modal open={newFolder} onClose={() => setNewFolder(false)} title="New folder">
         <NewFolderForm onCreate={(name) => { addDoc({ folder: name, name: ".keep", size_bytes: 0 }); setNewFolder(false); setFolder(name); }} />
       </Modal>
 
       {/* AI SCAN */}
       <Modal open={!!scanDoc} onClose={() => setScanDoc(null)} title="AI document scan">
-        {scanDoc && <ScanFlow key={scanDoc.id} doc={scanDoc} onClose={() => setScanDoc(null)} />}
+        {scanDoc && <ScanFlow key={scanDoc.id} doc={scanDoc} onClose={() => { setScanDoc(null); void loadScans(); }} />}
       </Modal>
     </div>
   );

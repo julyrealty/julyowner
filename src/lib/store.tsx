@@ -96,6 +96,16 @@ type HubState = {
   /** Service directory. Live = real ho_providers rows (empty until the pro adds any);
       demo = the seeded sample list. Never show sample pros to a real client. */
   providers: Provider[];
+  /** AI reviews for this hub — server-side jobs, so they survive page changes. */
+  scans: ScanRecord[];
+};
+
+export type ScanRecord = {
+  id: string; document_id: string | null; document_name: string | null;
+  scan_type: string; status: "pending" | "complete" | "failed";
+  summary: string | null; findings: string[];
+  items: { item_type: string; brand: string | null; age_years: number | null }[];
+  error: string | null; created_at: string; completed_at: string | null;
 };
 
 type HubActions = {
@@ -115,6 +125,7 @@ type HubActions = {
   startBuying: () => Promise<void>;
   stopBuying: () => Promise<void>;
   loadBuyer: () => Promise<void>;
+  loadScans: () => Promise<void>;
   sendMessage: (body: string) => Promise<void>;
   addRentalEntry: (e: { kind: "income" | "expense"; amount: number; note?: string; entry_date?: string }) => Promise<void>;
   removeRentalEntry: (id: string) => Promise<void>;
@@ -184,7 +195,7 @@ export function HubProvider({ children, demo }: { children: React.ReactNode; dem
     loading: true, demo, session: false, profile: null, hub: null,
     mortgages: [], inventory: [], tasks: [], docs: [], pro: null, advisor: null,
     buyer: { loaded: false, linked: false, watched: [], searches: [], tours: [], viewed: [] },
-    messages: [], rentalEntries: [], myHubs: [], providers: [],
+    messages: [], rentalEntries: [], myHubs: [], providers: [], scans: [],
   });
 
   /* ---------- load ---------- */
@@ -203,6 +214,7 @@ export function HubProvider({ children, demo }: { children: React.ReactNode; dem
           pro: DEMO_PRO, advisor: DEMO_ADVISOR as unknown as Advisor,
           myHubs: [{ id: DEMO_HUB.id, label: DEMO_HUB.address1 }],
           providers: PROVIDERS,
+          scans: [],
           ...data,
         }));
         return;
@@ -273,6 +285,7 @@ export function HubProvider({ children, demo }: { children: React.ReactNode; dem
         pro: pro as Profile | null, advisor: advisor as Advisor | null,
         buyer: { loaded: false, linked: false, watched: [], searches: [], tours: [], viewed: [] },
         providers,
+        scans: [],
       });
     })();
     return () => { alive = false; };
@@ -535,6 +548,14 @@ export function HubProvider({ children, demo }: { children: React.ReactNode; dem
         // Errors and timeouts read as "no JULY Search account yet" — the page shows its connect state.
         setState((s) => ({ ...s, buyer: { loaded: true, linked: false, watched: [], searches: [], tours: [], viewed: [] } }));
       }
+    },
+    async loadScans() {
+      if (state.demo || !state.hub) return;
+      try {
+        const { data } = await sb().functions.invoke("ho-scan", { body: { action: "list", hub_id: state.hub.id } });
+        const rows = ((data as { scans?: ScanRecord[] })?.scans) ?? [];
+        setState((s) => ({ ...s, scans: rows }));
+      } catch { /* the pages render fine without it */ }
     },
     async sendMessage(body) {
       const text = body.trim();
