@@ -21,10 +21,10 @@ function monthsUntil(target: Date, from = new Date()): number {
 }
 
 const LOCKED_META: { key: ProductKey; title: string; line: string; href: string }[] = [
-  { key: "buyer", title: "Buyer signals", line: "Know the moment a client starts their home search.", href: "/buy#agents" },
-  { key: "owner", title: "Renewal radar", line: "Every mortgage renewal in your book, a year out.", href: "/own#agents" },
-  { key: "seller", title: "Seller signals", line: "Live seller activations plus propensity scores.", href: "/sell#agents" },
-  { key: "investor", title: "Lease renewals", line: "Landlord clients' lease deadlines, before they hit.", href: "/invest#agents" },
+  { key: "buyer", title: "Buyer signals", line: "Know the moment a client starts their home search.", href: "/pro/upgrade?product=buyer" },
+  { key: "owner", title: "Renewal radar", line: "Every mortgage renewal in your book, a year out.", href: "/pro/upgrade?product=owner" },
+  { key: "seller", title: "Seller signals", line: "Live seller activations plus propensity scores.", href: "/pro/upgrade?product=seller" },
+  { key: "investor", title: "Lease renewals", line: "Landlord clients' lease deadlines, before they hit.", href: "/pro/upgrade?product=investor" },
 ];
 
 export default function ProOpportunities() {
