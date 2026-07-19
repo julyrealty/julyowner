@@ -93,8 +93,10 @@ function ServicesInner() {
           {list.length === 0 && <Card className="p-8 text-center text-sm text-gray-500">No pros match — try another category.</Card>}
         </div>
 
+        {/* Provenance must match reality: every row here was added by a pro.
+            There is no public-records sourcing and no independent vetting step. */}
         <p className="mt-6 text-center text-[11px] text-gray-400">
-          Providers are sourced from your advisor&apos;s network and public business records. Always confirm licensing and get written quotes.
+          These pros were added by {proName} from their own network. Always confirm licensing and get written quotes.
         </p>
       </div>
 

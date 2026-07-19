@@ -8,11 +8,12 @@ const geistMono = Geist_Mono({ variable: "--font-geist-mono", subsets: ["latin"]
 export const metadata: Metadata = {
   title: { default: "JULYOwner — Your home, working for you", template: "%s · JULYOwner" },
   description:
-    "JULYOwner is your private home hub: live home value and equity, a smart maintenance plan, renovation ROI, mortgage savings tools, and secure document storage — free from your JULY Realty advisor.",
+    "JULYOwner is your private home hub: a monthly home value and equity estimate, a maintenance plan built from what you actually own, renovation cost-vs-value, mortgage tools, and secure document storage — free from your JULY Realty advisor.",
   openGraph: {
     title: "JULYOwner — Your home, working for you",
+    // No absolute promises: whether maintenance gets missed depends on the owner.
     description:
-      "Track your home's value, save on your mortgage, and never miss maintenance again. Free from your JULY Realty advisor.",
+      "Track your home's value, plan maintenance before it surprises you, and keep every document in one place. Free from your JULY Realty advisor.",
     type: "website",
   },
 };
