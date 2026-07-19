@@ -83,7 +83,8 @@ const PERSONAS: Record<PersonaKey, {
   },
 };
 
-const TIERS = [
+/** The single source of truth for agent pricing — /professionals renders these too. */
+export const TIERS = [
   { name: "Free", price: "$0", per: "", limit: "3", features: ["Branded client hubs", "Invites & lead alerts"] },
   { name: "Starter", price: "$29", per: "/mo", limit: "25", features: ["Everything in Free", "10 AI document scans/mo", "Monthly value emails from your name"] },
   { name: "Pro", price: "$59", per: "/mo", limit: "100", features: ["Everything in Starter", "Live client signals & weekly digest", "Your branding everywhere", "50 AI scans/mo"], popular: true },

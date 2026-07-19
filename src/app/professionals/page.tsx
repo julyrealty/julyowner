@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { ArrowRight, Home, Check, Radar, HeartHandshake, Repeat, Tag, Search, CalendarClock, FileScan, LineChart, FileText, Mail, Gauge } from "lucide-react";
+import { TIERS } from "@/components/persona-landing";
 
 export const metadata = { title: "For professionals" };
 
@@ -39,10 +40,12 @@ export default function ProfessionalsPage() {
             </div>
           </div>
           <div className="grid gap-3 sm:grid-cols-2">
+            {/* Qualitative on purpose — no borrowed or unverifiable statistics on a
+                page selling to licensed professionals. */}
             {[
-              ["~1 in 4", "sellers list with the agent who helped them buy — the rest simply lost touch (NAR research)"],
-              ["95%", "of your database won't move this year. The 5% who will? They tell you first when you're already in their hub."],
-              ["10+ yrs", "average gap between moves. Fridge magnets don't survive that. A useful product does."],
+              ["Most", "sellers don't list with the agent who helped them buy. Rarely disloyalty — usually just lost touch."],
+              ["The quiet years", "are where the relationship is won or lost. This keeps you present without pestering."],
+              ["Years, not months", "pass between moves. A fridge magnet doesn't survive that. A working product does."],
               ["Monthly", "value updates keep clients opening your emails long after closing day"],
             ].map(([n, s]) => (
               <div key={n as string} className="rounded-2xl border border-white/10 bg-white/5 p-5">
@@ -133,45 +136,29 @@ export default function ProfessionalsPage() {
         <div className="container-x">
           <h2 className="text-3xl font-extrabold tracking-tight sm:text-4xl">Simple plans</h2>
           <p className="mt-2 text-gray-600">Start free. Upgrade when the pipeline proves itself.</p>
-          <div className="mt-10 grid gap-4 lg:grid-cols-2">
-            <div className="card p-7">
-              <p className="font-extrabold uppercase tracking-wide text-teal">Standard</p>
-              <p className="mt-2 text-4xl font-extrabold">Free</p>
-              <p className="mt-1 text-sm text-gray-500">For every JULY advisor and partner</p>
-              <ul className="mt-6 space-y-2.5 text-sm">
-                {[
-                  "Up to 500 client hubs",
-                  "Your branding on every hub and email",
-                  "Contacts, invites & landing page",
-                  "Curated service-provider list",
-                  "Monthly value emails to your clients",
-                ].map((li) => (
-                  <li key={li} className="flex items-start gap-2"><Check size={17} className="mt-0.5 shrink-0 text-teal" />{li}</li>
-                ))}
-              </ul>
-              <Link href="/claim?role=professional" className="btn btn-primary btn-md mt-7 w-full">Get started</Link>
-            </div>
-            <div className="card relative overflow-hidden p-7">
-              <span className="absolute right-5 top-5 rounded-full bg-amber-50 px-2.5 py-1 text-[11px] font-bold text-amber-700">MOST POPULAR</span>
-              <p className="font-extrabold uppercase tracking-wide text-navy">Professional</p>
-              <p className="mt-2 text-4xl font-extrabold">$49<span className="text-base font-bold text-gray-400">/mo</span></p>
-              <p className="mt-1 text-sm text-gray-500">or $399/yr — two months free</p>
-              <ul className="mt-6 space-y-2.5 text-sm">
-                {[
-                  "Everything in Standard, plus:",
-                  "1,000 client hubs",
-                  "Active seller & buyer signals, the moment they start",
-                  "Renewal Radar on every stored mortgage",
-                  "Relationship timelines & propensity signals",
-                  "Weekly signal digest + priority support",
-                ].map((li) => (
-                  <li key={li} className="flex items-start gap-2"><Check size={17} className="mt-0.5 shrink-0 text-navy" />{li}</li>
-                ))}
-              </ul>
-              <Link href="/claim?role=professional" className="btn btn-dark btn-md mt-7 w-full">Start Professional</Link>
-              <p className="mt-3 text-center text-xs text-gray-400">Create 100 active hubs and your first Professional year is on us.</p>
-            </div>
+          {/* Rendered from the shared TIERS list so this page can never drift
+              from what /pro/upgrade actually charges. */}
+          <div className="mt-10 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+            {TIERS.map((t) => (
+              <div key={t.name} className={`card relative p-6 ${t.popular ? "ring-2 ring-teal" : ""}`}>
+                {t.popular && (
+                  <span className="absolute right-4 top-4 rounded-full bg-teal-soft px-2.5 py-1 text-[11px] font-bold text-teal-deep">MOST POPULAR</span>
+                )}
+                <p className="font-extrabold uppercase tracking-wide text-navy">{t.name}</p>
+                <p className="mt-2 text-3xl font-extrabold">{t.price}<span className="text-sm font-bold text-gray-400">{t.per}</span></p>
+                <p className="mt-1 text-sm text-gray-500">Up to <b>{t.limit}</b> active clients</p>
+                <ul className="mt-4 space-y-2 text-sm">
+                  {t.features.map((li) => (
+                    <li key={li} className="flex items-start gap-2"><Check size={16} className="mt-0.5 shrink-0 text-teal" />{li}</li>
+                  ))}
+                </ul>
+                <Link href="/claim?role=professional" className="btn btn-ghost btn-sm mt-6 w-full">Get started</Link>
+              </div>
+            ))}
           </div>
+          <p className="mt-4 text-sm text-gray-500">
+            Already with JULY Realty? Every plan is included — ask for your code.
+          </p>
         </div>
       </section>
 

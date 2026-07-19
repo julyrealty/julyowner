@@ -91,10 +91,12 @@ export default function Landing() {
       {/* VALUE STRIP */}
       <section className="border-b border-line bg-white">
         <div className="container-x grid grid-cols-2 gap-6 py-8 text-center sm:grid-cols-4">
+          {/* Each of these is either a product fact or an openly-labelled rule of
+              thumb — no unsourced statistics on a public page. */}
           {[
-            ["10 yrs", "average time between moves — your home deserves attention in between"],
-            ["$40K+", "typical maintenance spend per decade — plan it, don't get surprised"],
-            ["80%", "of your borrowing power lives in home equity"],
+            ["Every month", "your estimate refreshes on its own — no logging in to check"],
+            ["~1%/yr", "a common rule for budgeting maintenance — we turn it into a real plan"],
+            ["80% LTV", "the ceiling most lenders set on borrowing against your home"],
             ["1 place", "for every document, warranty, and serial number"],
           ].map(([big, small]) => (
             <div key={big as string}>
