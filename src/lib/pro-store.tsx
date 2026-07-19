@@ -104,13 +104,14 @@ export function ProProvider({ children, demo }: { children: React.ReactNode; dem
       const { data: { session } } = await supa.auth.getSession();
       if (!session) { if (alive) setS((x) => ({ ...x, loading: false })); return; }
       const uidv = session.user.id;
-      const [{ data: profile }, { data: contacts }, { data: advisors }, { data: hubs }, { data: recs }, { data: provs }, { data: acts }, { data: leads }] = await Promise.all([
+      const [{ data: profile }, { data: contacts }, { data: advisors }, { data: hubs }, { data: recs }, { data: provs }, { data: invites }, { data: acts }, { data: leads }] = await Promise.all([
         supa.from("ho_profiles").select("*").eq("id", uidv).maybeSingle(),
         supa.from("ho_contacts").select("*").eq("pro_id", uidv).order("created_at", { ascending: false }),
         supa.from("ho_advisors").select("*").eq("pro_id", uidv),
-        supa.from("ho_hubs").select("id,full_address,address1,created_at,home_value,journey,selling_started_at,listing_status,buying_started_at,is_rental,monthly_rent,lease_end,ho_hub_members(first_name,last_name)").eq("pro_id", uidv),
+        supa.from("ho_hubs").select("id,full_address,address1,created_at,home_value,journey,selling_started_at,listing_status,buying_started_at,is_rental,monthly_rent,lease_end,ho_hub_members(first_name,last_name,email)").eq("pro_id", uidv),
         supa.from("ho_recommendations").select("provider_id").eq("pro_id", uidv),
         supa.from("ho_providers").select("*").order("name"),
+        supa.from("ho_invites").select("contact_id,email,status,accepted_at").eq("pro_id", uidv),
         supa.from("ho_activities").select("id,action,detail,member_email,created_at,ho_hubs!inner(id,address1,pro_id)").eq("ho_hubs.pro_id", uidv).order("created_at", { ascending: false }).limit(25),
         supa.from("ho_leads").select("*").eq("pro_id", uidv).order("created_at", { ascending: false }).limit(10),
       ]);
@@ -141,13 +142,49 @@ export function ProProvider({ children, demo }: { children: React.ReactNode; dem
           mtgByHub.set(hid, list);
         }
       }
+      // Who actually landed in a hub, and who still has an invite outstanding.
+      type InviteRow = { contact_id: string | null; email: string | null; status: string | null; accepted_at: string | null };
+      const invitesByContact = new Map<string, InviteRow[]>();
+      const invitesByEmail = new Map<string, InviteRow[]>();
+      for (const row of ((invites as unknown[]) || []) as InviteRow[]) {
+        if (row.contact_id) {
+          const k = String(row.contact_id);
+          invitesByContact.set(k, [...(invitesByContact.get(k) ?? []), row]);
+        }
+        if (row.email) {
+          const k = row.email.toLowerCase();
+          invitesByEmail.set(k, [...(invitesByEmail.get(k) ?? []), row]);
+        }
+      }
+      const hubByMemberEmail = new Map<string, string>();
+      for (const h of ((hubs as unknown[]) || []) as Record<string, unknown>[]) {
+        const label = String(h.full_address ?? h.address1 ?? "");
+        for (const m of ((h.ho_hub_members as Record<string, unknown>[]) || [])) {
+          const em = String(m.email ?? "").toLowerCase();
+          if (em) hubByMemberEmail.set(em, label);
+        }
+      }
+
       if (!alive) return;
       setS({
         loading: false, demo: false, session: true,
         profile: (profile as typeof DEMO_PRO) || null,
         contacts: ((contacts as unknown[]) || []).map((c) => {
           const cc = c as Record<string, unknown>;
-          return { id: String(cc.id), first_name: String(cc.first_name ?? ""), last_name: String(cc.last_name ?? ""), email: String(cc.email), tags: (cc.tags as string[]) ?? [], score: Number(cc.score ?? 5), joined: 0, pending: 0 };
+          const email = String(cc.email ?? "").toLowerCase();
+          // Onboarded = actually a member of one of this pro's hubs (or their invite
+          // was accepted). Invited = an invite exists that hasn't been accepted yet.
+          const memberHub = hubByMemberEmail.get(email);
+          const mine = invitesByContact.get(String(cc.id)) ?? invitesByEmail.get(email) ?? [];
+          const accepted = mine.some((i) => i.status === "accepted" || !!i.accepted_at);
+          const outstanding = mine.some((i) => i.status !== "accepted" && !i.accepted_at);
+          const joined = memberHub || accepted ? 1 : 0;
+          return {
+            id: String(cc.id), first_name: String(cc.first_name ?? ""), last_name: String(cc.last_name ?? ""),
+            email: String(cc.email), tags: (cc.tags as string[]) ?? [], score: Number(cc.score ?? 5),
+            joined, pending: !joined && outstanding ? 1 : 0,
+            addr: memberHub ?? undefined,
+          };
         }),
         advisors: (advisors as ProAdvisor[]) || [],
         hubs: ((hubs as unknown[]) || []).map((h) => {
