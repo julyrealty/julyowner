@@ -30,7 +30,8 @@ export default function MessagesPage() {
         <Avatar name={proName} size={40} />
         <div className="min-w-0">
           <h1 className="truncate text-xl font-extrabold tracking-tight">{proName}</h1>
-          <p className="text-xs text-gray-500">{(pro as { org_name?: string | null })?.org_name || "JULY Realty"} · usually replies within a day</p>
+          {/* No response-time promise — nothing measures it, and it is the advisor's to make. */}
+          <p className="text-xs text-gray-500">{(pro as { org_name?: string | null })?.org_name || "JULY Realty"} · messages reach them directly</p>
         </div>
       </div>
 
