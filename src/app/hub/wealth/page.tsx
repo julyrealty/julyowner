@@ -108,6 +108,11 @@ export default function BuildWealth() {
                 </Card>
               ))}
             </div>
+            <p className="mt-2 text-[11px] leading-relaxed text-gray-400">
+              These show how far your <b>equity</b> could stretch as a down payment — they don&apos;t account for
+              income, debts, or the stress test, which is what a lender actually approves on. Treat them as the
+              ceiling, not the number. A pre-approval sets the real one.
+            </p>
           </section>
 
           {/* RENT IT INSTEAD — investor slice, hidden when no live rent data */}
@@ -351,14 +356,17 @@ export default function BuildWealth() {
 
           {/* EDUCATION */}
           <section>
-            <SectionLabel>Featured guides</SectionLabel>
+            <SectionLabel right={<Link className="link text-xs" href={`/hub/guides${q}`}>All guides</Link>}>
+              Featured guides
+            </SectionLabel>
             <div className="grid gap-3 sm:grid-cols-3">
               {[ARTICLES[5], ARTICLES[3], ARTICLES[7]].map((a) => (
-                <Card key={a.slug} className="p-4">
+                <Link key={a.slug} href={`/hub/guides${q ? `${q}&` : "?"}a=${a.slug}`}
+                  className="card p-4 transition hover:border-teal">
                   <p className="text-[11px] font-bold uppercase tracking-wide text-teal">{a.tag}</p>
                   <p className="mt-1.5 text-[15px] font-bold leading-snug">{a.title}</p>
                   <p className="mt-1.5 line-clamp-3 text-xs text-gray-500">{a.excerpt}</p>
-                </Card>
+                </Link>
               ))}
             </div>
           </section>

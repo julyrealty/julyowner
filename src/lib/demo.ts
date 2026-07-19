@@ -104,19 +104,10 @@ export const IMPROVEMENTS: Improvement[] = [
 
 /* ------------------------------------------------------------------ */
 
-export type Article = { slug: string; title: string; excerpt: string; tag: string; minutes: number };
-
-export const ARTICLES: Article[] = [
-  { slug: "first-year", title: "Your First Year as a Homeowner: What to Do and When", tag: "Getting started", minutes: 6, excerpt: "A month-by-month checklist that keeps small tasks from becoming expensive surprises." },
-  { slug: "hidden-costs", title: "Beyond the Mortgage: The Real Costs of Owning a Home", tag: "Finances", minutes: 5, excerpt: "Property tax, insurance, utilities, maintenance reserves — how to budget for all of it without stress." },
-  { slug: "handyman-vs-contractor", title: "Handyman or Contractor? Choosing the Right Pro for the Job", tag: "Home services", minutes: 4, excerpt: "When a $95 visit solves it, when you need permits, and how to compare quotes properly." },
-  { slug: "equity-explained", title: "Home Equity, Explained in Plain English", tag: "Finances", minutes: 5, excerpt: "What equity actually is, how it grows, and the smart (and not-so-smart) ways to use it." },
-  { slug: "maintenance-seasons", title: "The Four-Season Home Maintenance Playbook", tag: "Maintenance", minutes: 7, excerpt: "Vancouver's wet winters and dry summers each have a short list of must-do tasks. Here they are." },
-  { slug: "renovation-roi", title: "Which Renovations Actually Pay You Back?", tag: "Improvements", minutes: 6, excerpt: "Data-backed returns for the most common projects — and the ones to skip if resale is the goal." },
-  { slug: "insurance-review", title: "How to Review Your Home Insurance in 30 Minutes", tag: "Protection", minutes: 4, excerpt: "Coverage limits, deductibles, and the three questions to ask your broker every year." },
-  { slug: "suite-guide", title: "The Mortgage Helper: Adding a Rental Suite in BC", tag: "Income", minutes: 8, excerpt: "Zoning, permits, realistic budgets, and what a legal suite does to your home's value." },
-  { slug: "sell-ready", title: "Thinking of Selling in 2–3 Years? Start Here", tag: "Selling", minutes: 5, excerpt: "The low-cost moves that compound into a stronger sale price when you're ready." },
-];
+/* Guides live in their own module (they carry full bodies); re-exported here
+   so every existing `from "@/lib/demo"` import keeps working. */
+export { ARTICLES, guideBySlug } from "./guides";
+export type { Article, GuideBlock } from "./guides";
 
 /* ------------------------------------------------------------------ */
 

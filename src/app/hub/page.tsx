@@ -182,15 +182,18 @@ export default function HubDashboard() {
 
           {/* EDUCATION */}
           <section>
-            <SectionLabel>Featured guides</SectionLabel>
+            <SectionLabel right={<Link className="link text-xs" href={`/hub/guides${q}`}>All guides</Link>}>
+              Featured guides
+            </SectionLabel>
             <div className="no-bar -mx-4 flex gap-3 overflow-x-auto px-4 pb-1 sm:mx-0 sm:px-0">
               {ARTICLES.slice(0, 4).map((a) => (
-                <Card key={a.slug} className="w-[240px] shrink-0 p-4">
+                <Link key={a.slug} href={`/hub/guides${q ? `${q}&` : "?"}a=${a.slug}`}
+                  className="card w-[240px] shrink-0 p-4 transition hover:border-teal">
                   <p className="text-[11px] font-bold uppercase tracking-wide text-teal">{a.tag}</p>
                   <p className="mt-1.5 text-[15px] font-bold leading-snug">{a.title}</p>
                   <p className="mt-1.5 line-clamp-2 text-xs text-gray-500">{a.excerpt}</p>
                   <p className="mt-2 text-[11px] font-semibold text-gray-400">{a.minutes} min read</p>
-                </Card>
+                </Link>
               ))}
             </div>
           </section>

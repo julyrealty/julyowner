@@ -80,14 +80,17 @@ export default function ManageHome() {
 
           {/* EDUCATION */}
           <section>
-            <SectionLabel>Featured guides</SectionLabel>
+            <SectionLabel right={<Link className="link text-xs" href={`/hub/guides${q}`}>All guides</Link>}>
+              Featured guides
+            </SectionLabel>
             <div className="grid gap-3 sm:grid-cols-3">
               {ARTICLES.slice(3, 6).map((a) => (
-                <Card key={a.slug} className="p-4">
+                <Link key={a.slug} href={`/hub/guides${q ? `${q}&` : "?"}a=${a.slug}`}
+                  className="card p-4 transition hover:border-teal">
                   <p className="text-[11px] font-bold uppercase tracking-wide text-teal">{a.tag}</p>
                   <p className="mt-1.5 text-[15px] font-bold leading-snug">{a.title}</p>
                   <p className="mt-1.5 line-clamp-3 text-xs text-gray-500">{a.excerpt}</p>
-                </Card>
+                </Link>
               ))}
             </div>
           </section>
