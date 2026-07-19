@@ -62,6 +62,15 @@ export default function AuthCallback() {
         });
         if (!error) localStorage.removeItem("julyowner-pending-claim");
         if (!error && pending.journey === "buying") { window.location.replace("/hub/buying"); return; }
+      } else {
+        // Sign-in: land buyers in Buying HQ, not the owner dashboard.
+        let activeHub = memberships[0].hub_id as string;
+        try {
+          const chosen = localStorage.getItem("julyowner-active-hub");
+          if (chosen && memberships.some((m) => m.hub_id === chosen)) activeHub = chosen;
+        } catch {}
+        const { data: h } = await supa.from("ho_hubs").select("journey").eq("id", activeHub).maybeSingle();
+        if (h?.journey === "buying") { window.location.replace("/hub/buying"); return; }
       }
       window.location.replace("/hub");
     })();

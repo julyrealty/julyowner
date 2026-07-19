@@ -25,6 +25,11 @@ export default function HubDashboard() {
     return () => { cancelled = true; };
   }, [demo, hub?.city]);
 
+  // Buyer hubs (search HQs) have no home to dashboard — their home base is Buying HQ.
+  useEffect(() => {
+    if (!demo && hub?.journey === "buying") window.location.replace(`/hub/buying${q}`);
+  }, [demo, hub?.journey, q]);
+
   const value = hub?.home_value ?? 0;
   const balance = mortgages.reduce((s, m) => s + (m.balance || 0), 0);
   const equity = Math.max(0, value - balance);

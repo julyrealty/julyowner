@@ -19,12 +19,25 @@ const HOST_TO_PERSONA: Record<string, string> = {
 export function middleware(req: NextRequest) {
   const host = (req.headers.get("host") ?? "").toLowerCase().replace(/^www\./, "").split(":")[0];
   const dest = HOST_TO_PERSONA[host];
-  if (dest) {
+  if (!dest) return NextResponse.next();
+
+  const { pathname } = req.nextUrl;
+  if (pathname === "/") {
     const url = req.nextUrl.clone();
     url.pathname = dest;
     return NextResponse.rewrite(url);
   }
+  // Buyer domains: /claim is always the buyer signup (no address step) unless
+  // the link already carries an explicit persona or a professional role.
+  if (dest === "/buy" && pathname === "/claim") {
+    const p = req.nextUrl.searchParams;
+    if (!p.has("persona") && p.get("role") !== "professional") {
+      const url = req.nextUrl.clone();
+      url.searchParams.set("persona", "buyer");
+      return NextResponse.redirect(url);
+    }
+  }
   return NextResponse.next();
 }
 
-export const config = { matcher: "/" };
+export const config = { matcher: ["/", "/claim"] };
