@@ -11,8 +11,16 @@ export default function ProDashboard() {
   const { profile, contacts, hubs, activities, demo, products } = usePro();
   const q = demo ? "?demo=1" : "";
 
-  const totalValue = demo ? DEMO_HUB.home_value + 1120000 : hubs.length * 1200000;
+  // Real estimated values only — a hub with no valuation yet (e.g. a buyer's
+  // search HQ) contributes nothing rather than a made-up average.
+  const valued = hubs.filter((h) => (h.home_value ?? 0) > 0);
+  const totalValue = demo ? DEMO_HUB.home_value + 1120000 : valued.reduce((s, h) => s + (h.home_value ?? 0), 0);
   const commission = Math.round((totalValue * 0.025) / 1000) * 1000;
+  const valueNote = demo
+    ? "under management"
+    : valued.length === hubs.length
+      ? "under management"
+      : `across ${valued.length} valued home${valued.length === 1 ? "" : "s"}`;
   // Signal chips are premium: each family shows only with its product entitlement.
   const selling = products.seller ? hubs.filter((h) => h.journey === "selling").length : 0;
   const buying = products.buyer ? hubs.filter((h) => h.journey !== "selling" && h.journey !== "sold" && (h.buying_started_at || h.journey === "buying")).length : 0;
@@ -23,7 +31,7 @@ export default function ProDashboard() {
   const stats = [
     { label: "Contacts", value: contacts.length, note: "in your book" },
     { label: "Homeowner hubs", value: hubs.length, note: "live properties" },
-    { label: "Total home value", value: compactCad(totalValue), note: "under management" },
+    { label: "Total home value", value: compactCad(totalValue), note: valueNote },
     { label: "Est. commission potential", value: compactCad(commission), note: "if they all transacted once" },
   ];
 

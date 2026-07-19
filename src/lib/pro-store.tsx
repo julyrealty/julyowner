@@ -29,6 +29,7 @@ export type ProHubMortgage = {
 };
 export type ProHubRow = {
   id: string; address: string; contact: string; updated: string;
+  home_value?: number | null;
   journey?: "buying" | "owning" | "selling" | "sold";
   selling_started_at?: string | null;
   listing_status?: "preparing" | "listed" | "offers" | "sold" | null;
@@ -107,7 +108,7 @@ export function ProProvider({ children, demo }: { children: React.ReactNode; dem
         supa.from("ho_profiles").select("*").eq("id", uidv).maybeSingle(),
         supa.from("ho_contacts").select("*").eq("pro_id", uidv).order("created_at", { ascending: false }),
         supa.from("ho_advisors").select("*").eq("pro_id", uidv),
-        supa.from("ho_hubs").select("id,full_address,address1,created_at,journey,selling_started_at,listing_status,buying_started_at,is_rental,monthly_rent,lease_end,ho_hub_members(first_name,last_name)").eq("pro_id", uidv),
+        supa.from("ho_hubs").select("id,full_address,address1,created_at,home_value,journey,selling_started_at,listing_status,buying_started_at,is_rental,monthly_rent,lease_end,ho_hub_members(first_name,last_name)").eq("pro_id", uidv),
         supa.from("ho_recommendations").select("provider_id").eq("pro_id", uidv),
         supa.from("ho_providers").select("*").order("name"),
         supa.from("ho_activities").select("id,action,detail,member_email,created_at,ho_hubs!inner(id,address1,pro_id)").eq("ho_hubs.pro_id", uidv).order("created_at", { ascending: false }).limit(25),
@@ -155,6 +156,7 @@ export function ProProvider({ children, demo }: { children: React.ReactNode; dem
           return {
             id: String(hh.id), address: String(hh.full_address ?? hh.address1),
             contact: m ? `${m.first_name ?? ""} ${m.last_name ?? ""}`.trim() || "Invited" : "Unclaimed", updated: "recently",
+            home_value: (hh.home_value as number | null) ?? null,
             journey: (hh.journey as ProHubRow["journey"]) ?? "owning",
             selling_started_at: (hh.selling_started_at as string | null) ?? null,
             listing_status: (hh.listing_status as ProHubRow["listing_status"]) ?? null,

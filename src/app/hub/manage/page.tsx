@@ -3,13 +3,14 @@ import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { Clock, Search, ClipboardCheck, Hammer } from "lucide-react";
 import { useHub } from "@/lib/store";
-import { PROVIDER_CATEGORIES, PROVIDERS, ARTICLES } from "@/lib/demo";
+import { PROVIDER_CATEGORIES, ARTICLES } from "@/lib/demo";
 import { Card, SectionLabel, Pill } from "@/components/ui";
 import { fmtDate } from "@/lib/calc";
 import { useState } from "react";
 
 export default function ManageHome() {
-  const { tasks, setTaskStatus, addTask } = useHub();
+  const { tasks, setTaskStatus, addTask, providers, pro } = useHub();
+  const vetted = providers.filter((p) => p.recommended);
   const params = useSearchParams();
   const q = params.get("demo") === "1" ? "?demo=1" : "";
   const [newRepair, setNewRepair] = useState("");
@@ -120,15 +121,28 @@ export default function ManageHome() {
           <section>
             <SectionLabel>Recommended professionals</SectionLabel>
             <Card className="p-5">
-              <p className="text-sm font-bold">Trusted help is here</p>
-              <p className="mt-1 text-sm text-gray-500">
-                You have <b>{PROVIDERS.filter((p) => p.recommended).length} pros</b> personally vetted by your advisor
-                {" "}and <b>{PROVIDERS.length}</b> verified locals in the network.
-              </p>
-              <div className="mt-3 flex flex-wrap gap-1.5">
-                {PROVIDERS.filter((p) => p.recommended).map((p) => <Pill key={p.id} tone="green">👍 {p.name}</Pill>)}
-              </div>
-              <Link href={`/hub/services${q}`} className="link mt-3 inline-block text-sm">View recommended pros</Link>
+              {providers.length === 0 ? (
+                <>
+                  <p className="text-sm font-bold">Need a hand with something?</p>
+                  <p className="mt-1 text-sm text-gray-500">
+                    {(pro as { first_name?: string })?.first_name || "Your advisor"} hasn&apos;t added their
+                    trusted trades yet — ask and they&apos;ll point you at someone they actually use.
+                  </p>
+                  <Link href={`/hub/messages${q}`} className="link mt-3 inline-block text-sm">Ask for a referral</Link>
+                </>
+              ) : (
+                <>
+                  <p className="text-sm font-bold">Trusted help is here</p>
+                  <p className="mt-1 text-sm text-gray-500">
+                    You have <b>{vetted.length} pro{vetted.length === 1 ? "" : "s"}</b> personally vetted by your advisor
+                    {" "}and <b>{providers.length}</b> local{providers.length === 1 ? "" : "s"} in the network.
+                  </p>
+                  <div className="mt-3 flex flex-wrap gap-1.5">
+                    {vetted.map((p) => <Pill key={p.id} tone="green">👍 {p.name}</Pill>)}
+                  </div>
+                  <Link href={`/hub/services${q}`} className="link mt-3 inline-block text-sm">View recommended pros</Link>
+                </>
+              )}
             </Card>
           </section>
         </aside>
