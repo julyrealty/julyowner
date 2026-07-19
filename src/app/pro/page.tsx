@@ -72,20 +72,31 @@ export default function ProDashboard() {
             {activities.length === 0 && (
               <p className="p-6 text-sm text-gray-500">No activity yet. Invite your first homeowner and this feed comes alive — value checks, project favourites, document uploads, and “Sell my home” clicks.</p>
             )}
-            {activities.map((a) => (
-              <div key={a.id} className="flex items-center gap-3 p-4">
-                <Avatar name={a.member} size={34} />
-                <div className="min-w-0 flex-1">
-                  <p className="text-sm"><b>{a.member}</b> · {a.action}
-                    {a.detail && <span className="text-gray-500"> — {a.detail}</span>}
-                  </p>
-                  <p className="text-xs text-gray-400">{a.hub} · {relTime(a.when)}</p>
-                </div>
-                {(a.action.includes("Sell") || a.action.includes("Contacted")) && (
-                  <span className="shrink-0 rounded-full bg-red-50 px-2.5 py-1 text-[11px] font-extrabold text-coral">HOT LEAD</span>
-                )}
-              </div>
-            ))}
+            {activities.map((a) => {
+              const row = (
+                <>
+                  <Avatar name={a.member} size={34} />
+                  <div className="min-w-0 flex-1">
+                    <p className="text-sm"><b>{a.member}</b> · {a.action}
+                      {a.detail && <span className="text-gray-500"> — {a.detail}</span>}
+                    </p>
+                    <p className="text-xs text-gray-400">{a.hub} · {relTime(a.when)}</p>
+                  </div>
+                  {(a.action.includes("Sell") || a.action.includes("Contacted")) && (
+                    <span className="shrink-0 rounded-full bg-red-50 px-2.5 py-1 text-[11px] font-extrabold text-coral">HOT LEAD</span>
+                  )}
+                </>
+              );
+              // A hot lead you can't act on is a dead end — open that hub's timeline.
+              return a.hubId ? (
+                <Link key={a.id} href={`/pro/hubs${q ? `${q}&` : "?"}hub=${a.hubId}`}
+                  className="flex items-center gap-3 p-4 transition hover:bg-gray-50">
+                  {row}
+                </Link>
+              ) : (
+                <div key={a.id} className="flex items-center gap-3 p-4">{row}</div>
+              );
+            })}
           </Card>
         </section>
 

@@ -1,6 +1,7 @@
 "use client";
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
+import { useSearchParams } from "next/navigation";
 import { usePro, type ProActivity, type ProHubRow } from "@/lib/pro-store";
 import { Card, Avatar } from "@/components/ui";
 import { relTime } from "@/lib/calc";
@@ -188,7 +189,9 @@ export default function ProHubs() {
   const { hubs, activities, demo, profile } = usePro();
   const proName = `${(profile as { first_name?: string | null })?.first_name ?? "Your"} ${(profile as { last_name?: string | null })?.last_name ?? "advisor"}`.trim();
   const q = demo ? "?demo=1" : "";
-  const [openId, setOpenId] = useState<string | null>(null);
+  // Arriving from a dashboard activity row (?hub=…) opens that timeline straight away.
+  const params = useSearchParams();
+  const [openId, setOpenId] = useState<string | null>(params.get("hub"));
 
   // Live sellers first, sold second, active buyers third — agents scan top-down.
   const rank = (h: { journey?: string; buying_started_at?: string | null }) =>

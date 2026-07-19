@@ -27,7 +27,7 @@ export type ProHubRow = {
   mortgages?: ProHubMortgage[];
   is_rental?: boolean; monthly_rent?: number | null; lease_end?: string | null;
 };
-export type ProActivity = { id: string; hub: string; member: string; action: string; detail: string | null; when: string };
+export type ProActivity = { id: string; hub: string; hubId?: string | null; member: string; action: string; detail: string | null; when: string };
 export type ProductKey = "buyer" | "owner" | "seller" | "investor";
 export type ProState = {
   loading: boolean; demo: boolean; session: boolean;
@@ -97,7 +97,7 @@ export function ProProvider({ children, demo }: { children: React.ReactNode; dem
         supa.from("ho_advisors").select("*").eq("pro_id", uidv),
         supa.from("ho_hubs").select("id,full_address,address1,created_at,journey,selling_started_at,listing_status,buying_started_at,is_rental,monthly_rent,lease_end,ho_hub_members(first_name,last_name)").eq("pro_id", uidv),
         supa.from("ho_recommendations").select("provider_id").eq("pro_id", uidv),
-        supa.from("ho_activities").select("id,action,detail,member_email,created_at,ho_hubs!inner(address1,pro_id)").eq("ho_hubs.pro_id", uidv).order("created_at", { ascending: false }).limit(25),
+        supa.from("ho_activities").select("id,action,detail,member_email,created_at,ho_hubs!inner(id,address1,pro_id)").eq("ho_hubs.pro_id", uidv).order("created_at", { ascending: false }).limit(25),
         supa.from("ho_leads").select("*").eq("pro_id", uidv).order("created_at", { ascending: false }).limit(10),
       ]);
       const { data: ents } = await supa.from("ho_entitlements")
@@ -156,12 +156,12 @@ export function ProProvider({ children, demo }: { children: React.ReactNode; dem
         activities: [
           ...(((leads as unknown[]) || []).map((l) => {
             const ll = l as Record<string, unknown>;
-            return { id: `lead-${ll.id}`, hub: "Lead", member: String(ll.name || ll.email || "Homeowner"), action: ll.kind === "sell" ? "Clicked Sell My Home" : ll.kind === "loan" ? "Clicked Get a Loan" : "Requested service", detail: (ll.message as string) ?? null, when: String(ll.created_at) };
+            return { id: `lead-${ll.id}`, hub: "Lead", hubId: (ll.hub_id as string) ?? null, member: String(ll.name || ll.email || "Homeowner"), action: ll.kind === "sell" ? "Clicked Sell My Home" : ll.kind === "loan" ? "Clicked Get a Loan" : "Requested service", detail: (ll.message as string) ?? null, when: String(ll.created_at) };
           })),
           ...(((acts as unknown[]) || []).map((a) => {
             const aa = a as Record<string, unknown>;
             const hub = aa.ho_hubs as Record<string, unknown> | null;
-            return { id: String(aa.id), hub: String(hub?.address1 ?? ""), member: String(aa.member_email ?? "Member"), action: String(aa.action), detail: (aa.detail as string) ?? null, when: String(aa.created_at) };
+            return { id: String(aa.id), hub: String(hub?.address1 ?? ""), hubId: (hub?.id as string) ?? null, member: String(aa.member_email ?? "Member"), action: String(aa.action), detail: (aa.detail as string) ?? null, when: String(aa.created_at) };
           })),
         ].sort((x, y) => y.when.localeCompare(x.when)).slice(0, 25),
         shareLink: `${window.location.origin}/claim?pro=${uidv}`,

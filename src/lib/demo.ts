@@ -250,13 +250,15 @@ export const DEMO_CONTACTS = [
   { id: "c6", first_name: "Ravi", last_name: "Dhillon", email: "ravi.d@example.com", tags: [], score: 3, joined: 0, pending: 0, propensity: 52, addr: "6091 Main St, Vancouver" },
 ];
 
+/* hubId matches the demo hub ids in pro-store (h1 = Dana, h2 = Sam) so each
+   feed row can open that hub's timeline. */
 export const DEMO_ACTIVITIES = [
-  { id: "a1", hub: "2718 W 21st Ave", member: "Dana Whitfield", action: "Checked home value", detail: "Build Wealth", when: "2026-07-16T21:20:00Z" },
-  { id: "a2", hub: "2718 W 21st Ave", member: "Dana Whitfield", action: "Favorited a project", detail: "Legalize a basement suite", when: "2026-07-16T21:24:00Z" },
-  { id: "a3", hub: "1444 W 8th Ave #302", member: "Sam Okafor", action: "Viewed mortgage rates", detail: "Save Money", when: "2026-07-15T18:05:00Z" },
-  { id: "a4", hub: "2718 W 21st Ave", member: "Dana Whitfield", action: "Uploaded a document", detail: "insurance_policy_2026.pdf", when: "2026-07-14T02:11:00Z" },
-  { id: "a5", hub: "1444 W 8th Ave #302", member: "Sam Okafor", action: "Contacted a service pro", detail: "False Creek HVAC", when: "2026-07-12T22:40:00Z" },
-  { id: "a6", hub: "2718 W 21st Ave", member: "Dana Whitfield", action: "Clicked Sell My Home", detail: "Lead created", when: "2026-07-10T16:03:00Z" },
+  { id: "a1", hub: "2718 W 21st Ave", hubId: "h1", member: "Dana Whitfield", action: "Checked home value", detail: "Build Wealth", when: "2026-07-16T21:20:00Z" },
+  { id: "a2", hub: "2718 W 21st Ave", hubId: "h1", member: "Dana Whitfield", action: "Favorited a project", detail: "Legalize a basement suite", when: "2026-07-16T21:24:00Z" },
+  { id: "a3", hub: "1444 W 8th Ave #302", hubId: "h2", member: "Sam Okafor", action: "Viewed mortgage rates", detail: "Save Money", when: "2026-07-15T18:05:00Z" },
+  { id: "a4", hub: "2718 W 21st Ave", hubId: "h1", member: "Dana Whitfield", action: "Uploaded a document", detail: "insurance_policy_2026.pdf", when: "2026-07-14T02:11:00Z" },
+  { id: "a5", hub: "1444 W 8th Ave #302", hubId: "h2", member: "Sam Okafor", action: "Contacted a service pro", detail: "False Creek HVAC", when: "2026-07-12T22:40:00Z" },
+  { id: "a6", hub: "2718 W 21st Ave", hubId: "h1", member: "Dana Whitfield", action: "Clicked Sell My Home", detail: "Lead created", when: "2026-07-10T16:03:00Z" },
 ];
 
 /** Buying HQ demo — what a linked JULY Search account syncs into the hub. */
