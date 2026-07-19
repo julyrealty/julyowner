@@ -1,11 +1,12 @@
 "use client";
 import { useMemo, useState } from "react";
+import Link from "next/link";
 import { useHub, Mortgage } from "@/lib/store";
 import { cad, paidBreakdown, extraPaymentSavings, refiScenario, monthlyPayment, monthsBetween } from "@/lib/calc";
 import { MARKET, REFI_PRODUCTS } from "@/lib/demo";
 import { Card, SectionLabel, Modal, Field, Progress } from "@/components/ui";
 import { Donut, Sparkline } from "@/components/charts";
-import { ThumbsUp, ThumbsDown } from "lucide-react";
+import { ThumbsUp, ThumbsDown, Plus } from "lucide-react";
 
 /* Renewal math — Canadian fixed mortgages end at the TERM, not the amortization.
    Explicit Date parts (noon anchor, fmtDate convention) so date-only strings
@@ -23,6 +24,7 @@ function monthsUntil(target: Date, from = new Date()): number {
 
 export default function SaveMoney() {
   const { mortgages, updateMortgage, addMortgage, createLead, demo } = useHub();
+  const qs = demo ? "?demo=1" : "";
   const primary = mortgages.find((m) => m.is_primary) || mortgages[0];
   const [extra, setExtra] = useState(250);
   const [years, setYears] = useState(10);
@@ -64,6 +66,25 @@ export default function SaveMoney() {
 
       <div className="container-x grid gap-6 py-8 lg:grid-cols-[1fr_340px]">
         <div className="space-y-8">
+          {/* NO MORTGAGE YET — set up, or celebrate being mortgage-free */}
+          {!primary && (
+            <section>
+              <Card className="p-6">
+                <p className="font-bold">Add your mortgage and this page comes alive</p>
+                <p className="mt-1 text-sm leading-relaxed text-gray-500">
+                  Rate, balance, lender — that&apos;s all it takes. You&apos;ll get your renewal radar,
+                  a principal-vs-interest breakdown, and what an extra $100/mo actually saves you.
+                </p>
+                <button className="btn btn-primary btn-md mt-4" onClick={() => setAddOpen(true)}>
+                  <Plus size={15} /> Add my mortgage
+                </button>
+                <p className="mt-3 text-xs text-gray-400">
+                  Mortgage-free? Beautiful — nothing to do here. A HELOC counts too, if you carry one.
+                </p>
+              </Card>
+            </section>
+          )}
+
           {/* RENEWAL RADAR */}
           {primary && renewal && (
             <section>
@@ -194,7 +215,7 @@ export default function SaveMoney() {
 
           {/* RENEWAL / REFI SCENARIOS */}
           {primary && (
-            <section>
+            <section id="scenarios" className="scroll-mt-20">
               <SectionLabel>Renewal scenarios</SectionLabel>
               <Card className="p-6">
                 <p className="font-bold">If you renewed or refinanced today…</p>
@@ -234,6 +255,16 @@ export default function SaveMoney() {
           <section>
             <SectionLabel right={<button className="link text-xs" onClick={() => setAddOpen(true)}>+ Add a loan</button>}>My mortgage</SectionLabel>
             <Card className="divide-y divide-line">
+              {mortgages.length === 0 && (
+                <div className="p-5">
+                  <p className="text-sm font-bold">No loans tracked yet</p>
+                  <p className="mt-1 text-xs leading-relaxed text-gray-500">
+                    Add your mortgage or HELOC and we&apos;ll track the payoff, watch your renewal window,
+                    and flag when a better rate is worth a call.
+                  </p>
+                  <button className="btn btn-ghost btn-sm mt-3" onClick={() => setAddOpen(true)}><Plus size={14} /> Add a loan</button>
+                </div>
+              )}
               {mortgages.map((m) => {
                 const paid = m.original_amount - m.balance;
                 return (
@@ -252,13 +283,15 @@ export default function SaveMoney() {
                   </div>
                 );
               })}
-              <div className="flex items-center justify-between p-4 text-sm">
-                <span className="font-semibold text-gray-500">Does this look right?</span>
-                <div className="flex gap-2">
-                  <button onClick={() => setLooksRight(true)} className={`btn btn-sm ${looksRight === true ? "btn-primary" : "btn-ghost"}`}><ThumbsUp size={14} /> Yes</button>
-                  <button onClick={() => setLooksRight(false)} className={`btn btn-sm ${looksRight === false ? "btn-dark" : "btn-ghost"}`}><ThumbsDown size={14} /> No</button>
+              {mortgages.length > 0 && (
+                <div className="flex items-center justify-between p-4 text-sm">
+                  <span className="font-semibold text-gray-500">Does this look right?</span>
+                  <div className="flex gap-2">
+                    <button onClick={() => setLooksRight(true)} className={`btn btn-sm ${looksRight === true ? "btn-primary" : "btn-ghost"}`}><ThumbsUp size={14} /> Yes</button>
+                    <button onClick={() => setLooksRight(false)} className={`btn btn-sm ${looksRight === false ? "btn-dark" : "btn-ghost"}`}><ThumbsDown size={14} /> No</button>
+                  </div>
                 </div>
-              </div>
+              )}
               {looksRight === false && (
                 <p className="px-5 pb-4 text-xs text-gray-500">Tap <b>Update</b> on any loan to correct the balance or rate — the math updates instantly.</p>
               )}
@@ -268,11 +301,30 @@ export default function SaveMoney() {
           <section>
             <SectionLabel>Improve cash flow</SectionLabel>
             <Card className="divide-y divide-line text-sm font-semibold">
-              {["Renew at a better rate", "Increase your home value", "Rent out a suite", "Downsize on your timeline"].map((x) => (
-                <div key={x} className="flex items-center justify-between p-4 text-gray-700">
-                  {x} <span className="text-gray-300">›</span>
-                </div>
-              ))}
+              {/* "Renew at a better rate": jump to the scenarios below — or start by adding the loan. */}
+              {primary ? (
+                <a href="#scenarios" className="flex items-center justify-between p-4 text-gray-700 transition hover:bg-gray-50">
+                  <span>Renew at a better rate<span className="block text-[11px] font-normal text-gray-400">compare today&apos;s rates against yours</span></span>
+                  <span className="text-gray-300">›</span>
+                </a>
+              ) : (
+                <button onClick={() => setAddOpen(true)} className="flex w-full items-center justify-between p-4 text-left text-gray-700 transition hover:bg-gray-50">
+                  <span>Renew at a better rate<span className="block text-[11px] font-normal text-gray-400">add your mortgage to compare rates</span></span>
+                  <span className="text-gray-300">›</span>
+                </button>
+              )}
+              <Link href={`/hub/manage${qs}`} className="flex items-center justify-between p-4 text-gray-700 transition hover:bg-gray-50">
+                <span>Increase your home value<span className="block text-[11px] font-normal text-gray-400">upkeep now beats repairs later</span></span>
+                <span className="text-gray-300">›</span>
+              </Link>
+              <Link href={`/hub/wealth${qs}`} className="flex items-center justify-between p-4 text-gray-700 transition hover:bg-gray-50">
+                <span>Rent out a suite<span className="block text-[11px] font-normal text-gray-400">what your space could earn monthly</span></span>
+                <span className="text-gray-300">›</span>
+              </Link>
+              <Link href={`/hub/sell${qs}`} className="flex items-center justify-between p-4 text-gray-700 transition hover:bg-gray-50">
+                <span>Downsize on your timeline<span className="block text-[11px] font-normal text-gray-400">see what selling would free up</span></span>
+                <span className="text-gray-300">›</span>
+              </Link>
             </Card>
           </section>
         </aside>

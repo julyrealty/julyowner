@@ -4,7 +4,7 @@ import Link from "next/link";
 import { usePathname, useSearchParams } from "next/navigation";
 import {
   Home, LayoutDashboard, Wrench, PiggyBank, TrendingUp, House,
-  LogOut, RotateCcw, Sparkles, Tag, Search,
+  LogOut, RotateCcw, Sparkles, Tag, Search, FolderOpen, MessageSquare,
 } from "lucide-react";
 import { HubProvider, useHub, resetDemo } from "@/lib/store";
 import { Spinner, Modal } from "@/components/ui";
@@ -54,15 +54,31 @@ function Shell({ children }: { children: React.ReactNode }) {
   const active = (href: string) =>
     href === "/hub" ? path === "/hub" : path.startsWith(href);
 
-  // Seller mode gets its own tab, right after the dashboard. An active buying plan
-  // gets one too — but never both at once: Selling wins, so mobile stays at six columns.
+  // Pure buyer hubs (search HQs — no home yet) get a buyer-shaped menu, not the
+  // owner's. Owner hubs get their tabs plus at most one journey tab (Selling wins).
+  const isPureBuyer = hub?.journey === "buying";
+
+  // Owner-only surfaces assume a home; a search HQ has none. Deep links land on My Search.
+  const OWNER_ONLY = ["/hub/manage", "/hub/save", "/hub/wealth", "/hub/sell", "/hub/home/inventory", "/hub/home/timeline"];
+  const ownerOnlyPath = OWNER_ONLY.some((p) => path.startsWith(p)) || path === "/hub/home";
+  if (isPureBuyer && ownerOnlyPath) {
+    if (typeof window !== "undefined") window.location.replace(`/hub/buying${q}`);
+    return null;
+  }
   const selling = hub?.journey === "selling" || hub?.journey === "sold";
   const buying = !!hub?.buying_started_at || hub?.journey === "buying";
-  const nav = selling
-    ? [NAV[0], { href: "/hub/sell", label: "Selling", icon: Tag }, ...NAV.slice(1)]
-    : buying
-      ? [NAV[0], { href: "/hub/buying", label: "Buying", icon: Search }, ...NAV.slice(1)]
-      : NAV;
+  const BUYER_NAV = [
+    { href: "/hub/buying", label: "My Search", icon: Search },
+    { href: "/hub/home/documents", label: "Documents", icon: FolderOpen },
+    { href: "/hub/messages", label: "Messages", icon: MessageSquare },
+  ];
+  const nav = isPureBuyer
+    ? BUYER_NAV
+    : selling
+      ? [NAV[0], { href: "/hub/sell", label: "Selling", icon: Tag }, ...NAV.slice(1)]
+      : buying
+        ? [NAV[0], { href: "/hub/buying", label: "Buying", icon: Search }, ...NAV.slice(1)]
+        : NAV;
 
   // White-label: the hub inherits the sponsoring professional's brand colour.
   const brand = (pro as { brand_color?: string | null })?.brand_color || "#0e7c7b";
@@ -95,9 +111,11 @@ function Shell({ children }: { children: React.ReactNode }) {
       <header className="sticky top-0 z-40 border-b border-line bg-white">
         <div className="container-x flex h-14 items-center justify-between sm:h-16">
           <div className="flex min-w-0 items-center gap-2">
-            <Link href={`/hub${q}`} className="flex shrink-0 items-center gap-1.5 text-lg font-extrabold tracking-tight">
+            <Link href={isPureBuyer ? `/hub/buying${q}` : `/hub${q}`} className="flex shrink-0 items-center gap-1.5 text-lg font-extrabold tracking-tight">
               <span className="text-ink">JULY</span>
-              <span className="flex items-center gap-0.5 text-teal"><Home size={16} strokeWidth={2.8} />Owner</span>
+              {isPureBuyer
+                ? <span className="flex items-center gap-0.5 text-teal"><Search size={16} strokeWidth={2.8} />Buyer</span>
+                : <span className="flex items-center gap-0.5 text-teal"><Home size={16} strokeWidth={2.8} />Owner</span>}
             </Link>
             {myHubs.length > 1 && (
               <select
@@ -165,7 +183,7 @@ function Shell({ children }: { children: React.ReactNode }) {
 
       {/* Mobile bottom nav */}
       <nav className="fixed inset-x-0 bottom-0 z-40 border-t border-line bg-white/95 backdrop-blur md:hidden" style={{ paddingBottom: "env(safe-area-inset-bottom)" }}>
-        <div className={nav.length === 6 ? "grid grid-cols-6" : "grid grid-cols-5"}>
+        <div className={nav.length === 6 ? "grid grid-cols-6" : nav.length === 3 ? "grid grid-cols-3" : "grid grid-cols-5"}>
           {nav.map((n) => (
             <Link key={n.href} href={`${n.href}${q}`}
               className={`flex flex-col items-center gap-0.5 py-2.5 text-[10px] font-bold ${active(n.href) ? "text-teal" : "text-gray-400"}`}>

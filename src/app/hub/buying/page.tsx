@@ -4,16 +4,39 @@ import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import {
   Search, Heart, Bell, CalendarDays, MapPin, TrendingUp, ArrowRight, ExternalLink, Link2,
+  House, Sparkles, FolderOpen,
 } from "lucide-react";
 import { useHub } from "@/lib/store";
-import { cad, compact, purchasingPower, fmtDate } from "@/lib/calc";
+import { cad, compact, purchasingPower, fmtDate, monthlyPayment } from "@/lib/calc";
 import { Card, SectionLabel, Avatar, Pill } from "@/components/ui";
 
 const SEARCH_URL = "https://search.july.ca";
+const AIPRO_URL = "https://buyeraipro.com";
+const AFF_RATE = 4.19; // 3-yr fixed — mirrors the market rate strip
+const AFF_AMORT = 25;
 
 function listingTone(status: string): "teal" | "red" | "gray" {
   const s = status.toLowerCase();
   return s === "active" ? "teal" : s === "sold" ? "red" : "gray";
+}
+
+function specLine(beds?: number | null, baths?: number | null, city?: string | null): string {
+  return [beds != null ? `${beds} bd` : null, baths != null ? `${baths} ba` : null, city]
+    .filter(Boolean).join(" · ");
+}
+
+/** Listing photo with a graceful tile fallback (CDN photos can expire). */
+function ListingThumb({ src, alt, className }: { src?: string | null; alt: string; className: string }) {
+  const [broken, setBroken] = useState(false);
+  if (!src || broken) {
+    return (
+      <div className={`flex items-center justify-center bg-teal-soft text-teal-deep ${className}`}>
+        <House size={24} />
+      </div>
+    );
+  }
+  // eslint-disable-next-line @next/next/no-img-element
+  return <img src={src} alt={alt} loading="lazy" onError={() => setBroken(true)} className={`object-cover ${className}`} />;
 }
 
 export default function BuyingPage() {
@@ -24,11 +47,12 @@ export default function BuyingPage() {
   const params = useSearchParams();
   const q = params.get("demo") === "1" ? "?demo=1" : "";
 
+  const isPureBuyer = hub?.journey === "buying";
   const value = hub?.home_value ?? 0;
   const balance = mortgages.reduce((s, m) => s + (m.balance || 0), 0);
   const equity = Math.max(0, value - balance);
   const buyPower = purchasingPower(value, balance).find((p) => p.key === "buy")?.amount ?? 0;
-  const buying = !!hub?.buying_started_at;
+  const buying = !!hub?.buying_started_at || isPureBuyer;
 
   /* activation */
   const [starting, setStarting] = useState(false);
@@ -36,6 +60,13 @@ export default function BuyingPage() {
   /* advisor message */
   const [msg, setMsg] = useState("");
   const [msgSent, setMsgSent] = useState(false);
+
+  /* affordability (pure buyers) */
+  const [monthly, setMonthly] = useState(3500);
+  const [affSent, setAffSent] = useState(false);
+  const per100k = monthlyPayment(100000, AFF_RATE, AFF_AMORT);
+  const borrow = Math.max(0, Math.round(((monthly / per100k) * 100000) / 10000) * 10000);
+  const price20 = Math.round((borrow / 0.8) / 10000) * 10000;
 
   /* load the JULY Search snapshot once, whichever path turned buying on */
   const fetched = useRef(false);
@@ -58,9 +89,14 @@ export default function BuyingPage() {
     setMsgSent(true);
   }
 
+  async function askPreApproval() {
+    await createLead("loan", `Pre-approval check: I'm budgeting about ${cad(monthly)}/mo — what price range does that support?`);
+    setAffSent(true);
+  }
+
   if (!hub) return null;
 
-  /* ---------------------------------- activation state ---------------------------------- */
+  /* ---------------------------------- activation state (owners only) ---------------------------------- */
   if (!buying) {
     return (
       <div className="container-x py-8 sm:py-10">
@@ -120,20 +156,24 @@ export default function BuyingPage() {
       {/* header */}
       <section className="flex flex-wrap items-end justify-between gap-3">
         <div>
-          <p className="eyebrow">Buying HQ</p>
-          <h1 className="mt-1 text-2xl font-extrabold tracking-tight sm:text-3xl">Your buying plan</h1>
+          <p className="eyebrow">{isPureBuyer ? "Home Search HQ" : "Buying HQ"}</p>
+          <h1 className="mt-1 text-2xl font-extrabold tracking-tight sm:text-3xl">
+            {isPureBuyer ? "Your home search" : "Your buying plan"}
+          </h1>
           {(hub?.journey === "selling" || hub?.journey === "sold") && (
             <Link href={`/hub/sell${q}`} className="mt-1 inline-block text-[12px] font-bold text-coral underline underline-offset-2">
               Also selling — open your selling plan →
             </Link>
           )}
         </div>
-        <button
-          className="text-[12px] font-bold text-gray-400 underline underline-offset-2 transition hover:text-gray-600"
-          title="Turns buying mode off — your hub stays exactly as-is."
-          onClick={() => stopBuying()}>
-          pause this plan
-        </button>
+        {!isPureBuyer && (
+          <button
+            className="text-[12px] font-bold text-gray-400 underline underline-offset-2 transition hover:text-gray-600"
+            title="Turns buying mode off — your hub stays exactly as-is."
+            onClick={() => stopBuying()}>
+            pause this plan
+          </button>
+        )}
       </section>
 
       <div className="grid gap-6 lg:grid-cols-[1fr_360px]">
@@ -180,18 +220,56 @@ export default function BuyingPage() {
                 ) : (
                   <div className="grid gap-3 sm:grid-cols-2">
                     {buyer.watched.map((w) => (
-                      <Card key={w.ref} className="p-4">
-                        <div className="flex items-start justify-between gap-2">
-                          <p className="min-w-0 text-sm font-extrabold leading-snug">{w.label || "Saved listing"}</p>
-                          {w.last_status && <Pill tone={listingTone(w.last_status)}>{w.last_status}</Pill>}
-                        </div>
-                        <div className="mt-2 flex items-baseline justify-between gap-2">
-                          <span className="tabular text-lg font-extrabold">{w.last_price != null ? compact(w.last_price) : "—"}</span>
-                          <span className="text-[11px] text-gray-400">saved {fmtDate(w.created_at)}</span>
+                      <Card key={w.ref} className="overflow-hidden">
+                        <ListingThumb src={w.photo} alt={w.label || "Watched home"} className="h-32 w-full" />
+                        <div className="p-4">
+                          <div className="flex items-start justify-between gap-2">
+                            <p className="min-w-0 text-sm font-extrabold leading-snug">{w.label || "Saved listing"}</p>
+                            {w.last_status && <Pill tone={listingTone(w.last_status)}>{w.last_status}</Pill>}
+                          </div>
+                          {specLine(w.beds, w.baths, w.city) && (
+                            <p className="mt-0.5 text-[12px] text-gray-500">{specLine(w.beds, w.baths, w.city)}</p>
+                          )}
+                          <div className="mt-2 flex items-baseline justify-between gap-2">
+                            <span className="tabular text-lg font-extrabold">
+                              {(w.last_price ?? w.list_price) != null ? compact((w.last_price ?? w.list_price)!) : "—"}
+                            </span>
+                            <span className="text-[11px] text-gray-400">saved {fmtDate(w.created_at)}</span>
+                          </div>
                         </div>
                       </Card>
                     ))}
                   </div>
+                )}
+              </section>
+
+              {/* RECENTLY VIEWED */}
+              <section>
+                <SectionLabel>Recently viewed</SectionLabel>
+                {buyer.viewed.length === 0 ? (
+                  <Card className="p-5">
+                    <p className="text-sm text-gray-500">
+                      Listings you open on JULY Search show up here — so the one you half-remember from
+                      Tuesday is never lost.
+                    </p>
+                  </Card>
+                ) : (
+                  <Card className="divide-y divide-line">
+                    {buyer.viewed.map((v) => (
+                      <div key={v.ref} className="flex items-center gap-3 p-3">
+                        <ListingThumb src={v.photo} alt={v.label || "Viewed home"} className="h-12 w-16 shrink-0 rounded-lg" />
+                        <div className="min-w-0 flex-1">
+                          <p className="truncate text-sm font-bold">{v.label || "Viewed listing"}</p>
+                          <p className="text-[11px] text-gray-400">
+                            {specLine(v.beds, v.baths, null) ? `${specLine(v.beds, v.baths, null)} · ` : ""}viewed {fmtDate(v.viewed_at)}
+                          </p>
+                        </div>
+                        <span className="tabular shrink-0 text-sm font-extrabold">
+                          {v.list_price != null ? compact(v.list_price) : ""}
+                        </span>
+                      </div>
+                    ))}
+                  </Card>
                 )}
               </section>
 
@@ -252,7 +330,7 @@ export default function BuyingPage() {
           )}
 
           <p className="text-[11px] leading-relaxed text-gray-400">
-            Powered by JULY Search (search.july.ca) — watched homes, saved searches, and tour requests sync automatically.
+            Powered by JULY Search (search.july.ca) — watched homes, recently viewed, saved searches, and tour requests sync automatically.
           </p>
         </div>
 
@@ -300,17 +378,73 @@ export default function BuyingPage() {
             </Card>
           </section>
 
+          {isPureBuyer ? (
+            /* Pure buyers: affordability, not equity (they don't own yet). */
+            <section>
+              <SectionLabel>What can I afford?</SectionLabel>
+              <Card className="p-5">
+                <label className="text-sm font-semibold text-gray-500" htmlFor="aff-monthly">Comfortable monthly payment</label>
+                <div className="mt-1.5 flex items-center gap-2">
+                  <span className="text-lg font-extrabold text-gray-400">$</span>
+                  <input id="aff-monthly" type="number" min={500} step={100} className="input tabular text-lg font-extrabold"
+                    value={monthly} onChange={(e) => setMonthly(Math.max(0, Number(e.target.value) || 0))} />
+                  <span className="shrink-0 text-sm text-gray-400">/mo</span>
+                </div>
+                <div className="mt-3 rounded-xl bg-teal-soft p-3">
+                  <p className="text-[12px] font-bold text-teal-deep/80">carries a mortgage of about</p>
+                  <p className="tabular text-2xl font-extrabold text-teal-deep">≈ {cad(borrow)}</p>
+                  <p className="mt-1 text-[12px] leading-relaxed text-teal-deep/80">
+                    ≈ {cad(price20)} home with 20% down, at {AFF_RATE}% over {AFF_AMORT} years.
+                  </p>
+                </div>
+                <p className="mt-2 text-[11px] leading-relaxed text-gray-400">
+                  A planning estimate — lenders stress-test about 2% higher. A pre-approval pins down the real number.
+                </p>
+                {affSent ? (
+                  <p className="mt-3 rounded-xl bg-teal-soft p-2.5 text-center text-sm font-extrabold text-teal-deep">Request sent ✓</p>
+                ) : (
+                  <button className="btn btn-ghost btn-sm mt-3" onClick={askPreApproval}>
+                    Ask about pre-approval <ArrowRight size={14} />
+                  </button>
+                )}
+              </Card>
+            </section>
+          ) : (
+            <section>
+              <SectionLabel>Your buying power</SectionLabel>
+              <Card className="p-5">
+                <p className="text-sm font-semibold text-gray-500">Next home, using your equity</p>
+                <p className="tabular mt-1 text-3xl font-extrabold text-teal-deep">≈ {cad(buyPower)}</p>
+                <p className="mt-2 text-[13px] leading-relaxed text-gray-500">
+                  Built on {compact(equity)} of equity in {hub.address1}. Sell first, port the mortgage,
+                  or hold and rent — compare every path in Build Wealth.
+                </p>
+                <Link href={`/hub/wealth${q}`} className="btn btn-ghost btn-sm mt-3">
+                  Explore your equity <ArrowRight size={14} />
+                </Link>
+              </Card>
+            </section>
+          )}
+
           <section>
-            <SectionLabel>Your buying power</SectionLabel>
+            <SectionLabel>AI on your side</SectionLabel>
             <Card className="p-5">
-              <p className="text-sm font-semibold text-gray-500">Next home, using your equity</p>
-              <p className="tabular mt-1 text-3xl font-extrabold text-teal-deep">≈ {cad(buyPower)}</p>
-              <p className="mt-2 text-[13px] leading-relaxed text-gray-500">
-                Built on {compact(equity)} of equity in {hub.address1}. Sell first, port the mortgage,
-                or hold and rent — compare every path in Build Wealth.
+              <p className="flex items-center gap-1.5 text-sm font-extrabold">
+                <Sparkles size={15} className="text-gold" /> Buyer AiPro
               </p>
-              <Link href={`/hub/wealth${q}`} className="btn btn-ghost btn-sm mt-3">
-                Explore your equity <ArrowRight size={14} />
+              <p className="mt-1.5 text-[13px] leading-relaxed text-gray-500">
+                Before you tour, run any listing through Buyer AiPro — pricing history, days on market,
+                and red flags, read by AI in seconds.
+              </p>
+              <a href={AIPRO_URL} target="_blank" rel="noopener noreferrer" className="btn btn-primary btn-sm mt-3 w-full">
+                Scan a listing <ExternalLink size={13} />
+              </a>
+              <p className="mt-3 border-t border-line pt-3 text-[13px] leading-relaxed text-gray-500">
+                Got strata docs, disclosures, or an inspection report? Keep them together here and your
+                advisor reviews them with you before you offer.
+              </p>
+              <Link href={`/hub/home/documents${q}`} className="btn btn-ghost btn-sm mt-2 w-full">
+                <FolderOpen size={14} /> My documents
               </Link>
             </Card>
           </section>

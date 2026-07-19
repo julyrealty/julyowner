@@ -60,6 +60,13 @@ export type Advisor = {
 export type BuyerWatched = {
   ref: string; kind: string; label: string | null;
   last_price: number | null; last_status: string | null; created_at: string;
+  photo?: string | null; beds?: number | null; baths?: number | null;
+  city?: string | null; list_price?: number | null;
+};
+export type BuyerViewed = {
+  ref: string; viewed_at: string; label: string | null;
+  photo?: string | null; beds?: number | null; baths?: number | null;
+  city?: string | null; list_price?: number | null;
 };
 export type BuyerSearch = {
   name: string | null; criteria: unknown; alert_new: boolean | null;
@@ -82,7 +89,7 @@ type HubState = {
   docs: Doc[];
   pro: typeof DEMO_PRO | Profile | null;
   advisor: Advisor | null;
-  buyer: { loaded: boolean; linked: boolean; watched: BuyerWatched[]; searches: BuyerSearch[]; tours: BuyerTour[] };
+  buyer: { loaded: boolean; linked: boolean; watched: BuyerWatched[]; searches: BuyerSearch[]; tours: BuyerTour[]; viewed: BuyerViewed[] };
   messages: Message[];
   rentalEntries: RentalEntry[];
   myHubs: { id: string; label: string }[];
@@ -173,7 +180,7 @@ export function HubProvider({ children, demo }: { children: React.ReactNode; dem
   const [state, setState] = useState<HubState>({
     loading: true, demo, session: false, profile: null, hub: null,
     mortgages: [], inventory: [], tasks: [], docs: [], pro: null, advisor: null,
-    buyer: { loaded: false, linked: false, watched: [], searches: [], tours: [] },
+    buyer: { loaded: false, linked: false, watched: [], searches: [], tours: [], viewed: [] },
     messages: [], rentalEntries: [], myHubs: [],
   });
 
@@ -248,7 +255,7 @@ export function HubProvider({ children, demo }: { children: React.ReactNode; dem
         profile: profile as Profile, hub, mortgages, inventory, tasks, docs, messages, rentalEntries,
         myHubs: myHubs.length > 1 ? myHubs : (hub ? [{ id: (hub as Hub).id, label: (hub as Hub).address1 }] : []),
         pro: pro as Profile | null, advisor: advisor as Advisor | null,
-        buyer: { loaded: false, linked: false, watched: [], searches: [], tours: [] },
+        buyer: { loaded: false, linked: false, watched: [], searches: [], tours: [], viewed: [] },
       });
     })();
     return () => { alive = false; };
@@ -490,7 +497,7 @@ export function HubProvider({ children, demo }: { children: React.ReactNode; dem
       if (state.demo) {
         setState((s) => ({
           ...s,
-          buyer: { loaded: true, linked: true, watched: [...DEMO_BUYER.watched], searches: [...DEMO_BUYER.searches], tours: [...DEMO_BUYER.tours] },
+          buyer: { loaded: true, linked: true, watched: [...DEMO_BUYER.watched], searches: [...DEMO_BUYER.searches], tours: [...DEMO_BUYER.tours], viewed: [] },
         }));
         return;
       }
@@ -498,14 +505,14 @@ export function HubProvider({ children, demo }: { children: React.ReactNode; dem
         if (!state.hub) throw new Error("no hub");
         const { data, error } = await sb().functions.invoke("ho-buyer", { body: { action: "snapshot", hub_id: state.hub.id } });
         if (error || !data) throw error ?? new Error("empty snapshot");
-        const d = data as { linked?: boolean; watched?: BuyerWatched[]; searches?: BuyerSearch[]; tours?: BuyerTour[] };
+        const d = data as { linked?: boolean; watched?: BuyerWatched[]; searches?: BuyerSearch[]; tours?: BuyerTour[]; viewed?: BuyerViewed[] };
         setState((s) => ({
           ...s,
-          buyer: { loaded: true, linked: !!d.linked, watched: d.watched ?? [], searches: d.searches ?? [], tours: d.tours ?? [] },
+          buyer: { loaded: true, linked: !!d.linked, watched: d.watched ?? [], searches: d.searches ?? [], tours: d.tours ?? [], viewed: d.viewed ?? [] },
         }));
       } catch {
         // Errors and timeouts read as "no JULY Search account yet" — the page shows its connect state.
-        setState((s) => ({ ...s, buyer: { loaded: true, linked: false, watched: [], searches: [], tours: [] } }));
+        setState((s) => ({ ...s, buyer: { loaded: true, linked: false, watched: [], searches: [], tours: [], viewed: [] } }));
       }
     },
     async sendMessage(body) {
