@@ -259,7 +259,10 @@ export function HubProvider({ children, demo }: { children: React.ReactNode; dem
   useEffect(() => {
     if (state.loading || state.demo || !state.hub || valueRefreshed.current) return;
     const h = state.hub;
-    const stale = !h.home_value || !h.value_updated ||
+    // No confidence grade = the value is still the claim-time fallback, not a real
+    // JULY Value estimate — always try to replace it (the column default on
+    // value_updated makes new hubs look deceptively fresh).
+    const stale = !h.home_value || !h.value_confidence || !h.value_updated ||
       Date.now() - new Date(h.value_updated).getTime() > 30 * 86400000;
     if (!stale) return;
     valueRefreshed.current = true;

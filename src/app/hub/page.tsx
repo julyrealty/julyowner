@@ -4,10 +4,11 @@ import { useSearchParams } from "next/navigation";
 import { ChevronRight, Clock, Mail, Phone } from "lucide-react";
 import { useHub } from "@/lib/store";
 import { cad, compact, fmtDate, valueSeries } from "@/lib/calc";
+import { fetchCityMarket, type CityMarket } from "@/lib/platform";
 import { MARKET, ARTICLES } from "@/lib/demo";
 import { Card, SectionLabel, Progress, Avatar, Modal } from "@/components/ui";
 import { Sparkline, CompareBars } from "@/components/charts";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 
 export default function HubDashboard() {
   const { hub, mortgages, tasks, profile, pro, advisor, setTaskStatus, createLead, demo } = useHub();
@@ -16,6 +17,13 @@ export default function HubDashboard() {
   const [leadModal, setLeadModal] = useState<null | "sell" | "loan">(null);
   const [leadDone, setLeadDone] = useState(false);
   const [leadMsg, setLeadMsg] = useState("");
+  const [liveMarket, setLiveMarket] = useState<CityMarket[] | null>(null);
+  useEffect(() => {
+    if (demo || !hub?.city) return;
+    let cancelled = false;
+    fetchCityMarket(hub.city).then((rows) => { if (!cancelled) setLiveMarket(rows); });
+    return () => { cancelled = true; };
+  }, [demo, hub?.city]);
 
   const value = hub?.home_value ?? 0;
   const balance = mortgages.reduce((s, m) => s + (m.balance || 0), 0);
@@ -48,7 +56,7 @@ export default function HubDashboard() {
           </div>
           <Card className="w-full max-w-sm p-5 text-ink">
             <div className="flex items-center justify-between gap-2">
-              <p className="min-w-0 truncate font-bold">{hub?.address1}</p>
+              <p className="min-w-0 truncate font-bold">{hub?.unit ? `#${hub.unit} – ` : ""}{hub?.address1}</p>
               {(hub?.journey === "selling" || hub?.journey === "sold") && (
                 <span className="shrink-0 rounded-full bg-coral/10 px-2.5 py-0.5 text-[11px] font-extrabold text-coral">
                   {hub?.journey === "sold" ? "Sold" : "Selling"}
@@ -103,35 +111,52 @@ export default function HubDashboard() {
             </div>
           </section>
 
-          {/* MARKET FEED */}
+          {/* MARKET FEED — demo shows the seeded Arbutus story; live hubs get their own city */}
           <section>
-            <SectionLabel>Your market — {MARKET.area}</SectionLabel>
+            <SectionLabel>Your market — {demo ? MARKET.area : (hub?.city || "your area")}</SectionLabel>
             <Card className="p-5">
               <div className="flex items-start justify-between gap-4">
                 <div>
-                  <p className="font-bold">Home values in {MARKET.cityLine}</p>
-                  <p className="mt-0.5 text-sm text-gray-500">
-                    Homes here are selling in about <b>{MARKET.daysOnMarket} days</b> at <b>{(MARKET.listToSale * 100).toFixed(1)}%</b> of asking.
-                  </p>
+                  <p className="font-bold">Home values in {demo ? MARKET.cityLine : (hub?.city || "your area")}</p>
+                  {demo ? (
+                    <p className="mt-0.5 text-sm text-gray-500">
+                      Homes here are selling in about <b>{MARKET.daysOnMarket} days</b> at <b>{(MARKET.listToSale * 100).toFixed(1)}%</b> of asking.
+                    </p>
+                  ) : liveMarket && liveMarket.length > 0 ? (
+                    <p className="mt-0.5 text-sm text-gray-500">
+                      {liveMarket.slice(0, 2).map((r, i) => (
+                        <span key={r.property_class ?? i}>
+                          {i > 0 && " · "}
+                          <b>{r.active_count ?? "—"}</b> {(r.property_class && r.property_class !== "all" ? r.property_class : "homes")} active
+                          {r.median_list_price ? <> at a <b>{compact(r.median_list_price)}</b> median ask</> : null}
+                        </span>
+                      ))}
+                      <span className="text-gray-400"> · live from JULY Search</span>
+                    </p>
+                  ) : (
+                    <p className="mt-0.5 text-sm text-gray-500">Your value trend since purchase.</p>
+                  )}
                 </div>
               </div>
               <div className="mt-3"><Sparkline data={series} /></div>
               <p className="mt-1 text-right text-[11px] text-gray-400">since you bought in {hub?.purchase_date ? fmtDate(hub.purchase_date).split(",")[1] : "—"}</p>
             </Card>
-            <Card className="mt-3 p-5">
-              <p className="font-bold">Recent sales nearby</p>
-              <div className="mt-3 divide-y divide-line">
-                {MARKET.recentSales.slice(0, 4).map((s) => (
-                  <div key={s.address} className="flex items-center gap-3 py-2.5 text-sm">
-                    <span className="w-[74px] shrink-0 rounded-md bg-red-50 px-2 py-1 text-center text-[12px] font-extrabold text-coral tabular">
-                      {compact(s.price)}
-                    </span>
-                    <span className="min-w-0 flex-1 truncate font-medium">{s.address}</span>
-                    <span className="shrink-0 text-xs text-gray-400">{fmtDate(s.date)}</span>
-                  </div>
-                ))}
-              </div>
-            </Card>
+            {demo && (
+              <Card className="mt-3 p-5">
+                <p className="font-bold">Recent sales nearby</p>
+                <div className="mt-3 divide-y divide-line">
+                  {MARKET.recentSales.slice(0, 4).map((s) => (
+                    <div key={s.address} className="flex items-center gap-3 py-2.5 text-sm">
+                      <span className="w-[74px] shrink-0 rounded-md bg-red-50 px-2 py-1 text-center text-[12px] font-extrabold text-coral tabular">
+                        {compact(s.price)}
+                      </span>
+                      <span className="min-w-0 flex-1 truncate font-medium">{s.address}</span>
+                      <span className="shrink-0 text-xs text-gray-400">{fmtDate(s.date)}</span>
+                    </div>
+                  ))}
+                </div>
+              </Card>
+            )}
           </section>
 
           {/* IMPROVE */}

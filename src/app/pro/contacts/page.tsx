@@ -10,6 +10,7 @@ export default function ProContacts() {
   const [addOpen, setAddOpen] = useState(false);
   const [inviteLink, setInviteLink] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
+  const [invitee, setInvitee] = useState<string | null>(null); // picking a playbook for this contact
 
   const list = contacts.filter((c) =>
     (c.first_name + " " + c.last_name + c.email).toLowerCase().includes(qtext.toLowerCase()),
@@ -58,13 +59,30 @@ export default function ProContacts() {
               </div>
             )}
             <button className="btn btn-primary btn-sm shrink-0"
-              onClick={async () => { setCopied(false); setInviteLink(await inviteContact(c.id)); }}>
+              onClick={() => { setCopied(false); setInvitee(c.id); }}>
               {c.joined > 0 ? "View hub" : c.pending > 0 ? "Re-invite" : "Invite to hub"}
             </button>
           </Card>
         ))}
         {list.length === 0 && <Card className="p-8 text-center text-sm text-gray-500">No contacts yet — add your first above.</Card>}
       </div>
+
+      {/* PICK PLAYBOOK */}
+      <Modal open={invitee !== null} onClose={() => setInvitee(null)} title="Which hub fits them today?">
+        <div className="space-y-3">
+          <button className="w-full rounded-2xl border border-line p-4 text-left transition hover:border-teal"
+            onClick={async () => { const id = invitee!; setInvitee(null); setInviteLink(await inviteContact(id, "owning")); }}>
+            <p className="font-bold">Homeowner hub</p>
+            <p className="mt-0.5 text-[13px] text-gray-500">They own their place — value, equity, maintenance, documents. They&apos;ll enter their address at signup.</p>
+          </button>
+          <button className="w-full rounded-2xl border border-line p-4 text-left transition hover:border-teal"
+            onClick={async () => { const id = invitee!; setInvitee(null); setInviteLink(await inviteContact(id, "buying")); }}>
+            <p className="font-bold">Buyer search HQ</p>
+            <p className="mt-0.5 text-[13px] text-gray-500">They&apos;re shopping — watched homes, purchasing power, tours, AI document scans. No address needed.</p>
+          </button>
+          <p className="text-center text-[11px] text-gray-400">Either way it&apos;s your brand on their screen — and hubs change playbooks as life changes.</p>
+        </div>
+      </Modal>
 
       {/* ADD CONTACT */}
       <Modal open={addOpen} onClose={() => setAddOpen(false)} title="New contact">

@@ -40,7 +40,7 @@ export type ProState = {
   shareLink: string;
   products: Partial<Record<ProductKey, string>>; // product -> tier; absent = locked
   addContact: (c: { first_name: string; last_name: string; email: string }) => Promise<void>;
-  inviteContact: (id: string) => Promise<string>; // returns invite link
+  inviteContact: (id: string, journey?: "owning" | "buying") => Promise<string>; // returns invite link
   addAdvisor: (a: Omit<ProAdvisor, "id" | "is_default"> & { is_default?: boolean }) => Promise<void>;
   setDefaultAdvisor: (id: string) => Promise<void>;
   toggleRecommend: (providerId: string) => Promise<void>;
@@ -189,20 +189,21 @@ export function ProProvider({ children, demo }: { children: React.ReactNode; dem
         persist({ contacts: [{ ...row, id: (data as { id?: string })?.id ?? row.id }, ...s.contacts] });
       }
     },
-    async inviteContact(id) {
+    async inviteContact(id, journey = "owning") {
       const c = s.contacts.find((x) => x.id === id);
       persist({ contacts: s.contacts.map((x) => (x.id === id ? { ...x, pending: 1 } : x)) });
+      const personaParam = journey === "buying" ? "&persona=buyer" : "";
       if (!s.demo && c) {
         const user = (await sb().auth.getUser()).data.user;
-        const { data } = await sb().from("ho_invites").insert({ pro_id: user?.id, contact_id: id, email: c.email, invite_type: "hub" }).select().single();
+        const { data } = await sb().from("ho_invites").insert({ pro_id: user?.id, contact_id: id, email: c.email, invite_type: "hub", journey }).select().single();
         const inv = data as { id?: string; token?: string } | null;
         if (inv?.id) {
           // Fire the branded invite email through the ho-emails edge function.
           void sb().functions.invoke("ho-emails", { body: { action: "invite", invite_id: inv.id } }).catch(() => {});
         }
-        return `${window.location.origin}/claim?invite=${inv?.token ?? ""}`;
+        return `${window.location.origin}/claim?invite=${inv?.token ?? ""}${personaParam}`;
       }
-      return `${window.location.origin}/claim`;
+      return `${window.location.origin}/claim${journey === "buying" ? "?persona=buyer" : ""}`;
     },
     async addAdvisor(a) {
       const row: ProAdvisor = { id: uid(), is_default: a.is_default ?? s.advisors.length === 0, ...a };
