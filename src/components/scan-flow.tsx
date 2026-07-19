@@ -81,7 +81,8 @@ function findingsFrom(md: string | null | undefined): string[] {
 
 export function ScanFlow({ doc, onClose, initialType }: { doc: Doc; onClose: () => void; initialType?: string }) {
   const { demo, hub, inventory, addInventory } = useHub();
-  const [step, setStep] = useState<"pick" | "running" | "results" | "failed" | "added">("pick");
+  // "handed_off" = we stopped watching, the server did not stop working.
+  const [step, setStep] = useState<"pick" | "running" | "results" | "failed" | "added" | "handed_off">("pick");
   const [outcome, setOutcome] = useState<ScanOutcome | null>(null);
   const [errorMsg, setErrorMsg] = useState("");
   const [checked, setChecked] = useState<Set<string>>(new Set());
@@ -147,7 +148,11 @@ export function ScanFlow({ doc, onClose, initialType }: { doc: Doc; onClose: () 
         }
         if (s.status === "failed") throw new Error(s.error || "The scan failed. Please try again.");
       }
-      throw new Error("Still working — large documents can take a few minutes. Please try again shortly.");
+      // Out of patience in the browser, not out of progress on the server. The
+      // cron poller finishes this one and emails them — never offer "try again"
+      // here, that would start a second scan of the same document.
+      if (aliveRef.current) setStep("handed_off");
+      return;
     } catch (e) {
       if (!aliveRef.current) return;
       setErrorMsg(e instanceof Error ? e.message : "Something went wrong running the scan.");
@@ -216,6 +221,23 @@ export function ScanFlow({ doc, onClose, initialType }: { doc: Doc; onClose: () 
           ready, and it will be waiting under <b>Your reviews</b>.
         </p>
         <button className="btn btn-ghost btn-sm" onClick={onClose}>Close and keep working</button>
+      </div>
+    );
+  }
+
+  /* ---------- handed off to the background ---------- */
+  if (step === "handed_off") {
+    return (
+      <div className="space-y-4 py-2 text-center">
+        <span className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-teal-soft text-teal-deep">
+          <Sparkles size={22} />
+        </span>
+        <p className="font-bold">Still reading — we&apos;ll take it from here</p>
+        <p className="mx-auto max-w-sm text-sm leading-relaxed text-gray-500">
+          Longer documents take a while. This one keeps running on our side: we&apos;ll email you the
+          moment it&apos;s ready, and it will be waiting under <b>Your reviews</b>. Nothing to redo.
+        </p>
+        <button className="btn btn-primary btn-lg w-full" onClick={onClose}>Got it</button>
       </div>
     );
   }
