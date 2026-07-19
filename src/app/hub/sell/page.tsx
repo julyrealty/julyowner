@@ -7,7 +7,7 @@ import {
   Hammer, ArrowRight, Sparkles, PiggyBank,
 } from "lucide-react";
 import { useHub } from "@/lib/store";
-import { cad, compact, netProceeds, domEstimate, fmtDate } from "@/lib/calc";
+import { cad, compact, netProceeds, fmtDate } from "@/lib/calc";
 import { fetchCityMarket, fetchSoldComps, type CityMarket, type SoldComp } from "@/lib/platform";
 import { MARKET, IMPROVEMENTS, SELLER_TASKS } from "@/lib/demo";
 import { Card, SectionLabel, Avatar, Progress } from "@/components/ui";
@@ -58,13 +58,19 @@ export default function SellPage() {
     return () => { cancelled = true; };
   }, [marketCity]);
 
+  // Live hubs get real sold comparables or none at all. The seeded Arbutus
+  // sales stay in the demo, where the banner says everything is a sample —
+  // but invented addresses under "Recent sales near you", each priced against
+  // the seller's trial list price, must never reach someone actually selling.
   const comps = solds?.length
     ? solds.map((s) => ({
         address: `${s.unit_number ? `${s.unit_number}-` : ""}${s.address}`,
         price: s.sold_price ?? 0,
         date: s.sold_date ?? "",
       }))
-    : MARKET.recentSales;
+    : demo
+      ? MARKET.recentSales
+      : [];
   const compsLive = !!solds?.length;
 
   /* activation */
@@ -101,9 +107,11 @@ export default function SellPage() {
     mortgages: mortgages.map((m) => ({ balance: m.balance, rate: m.rate, loan_type: m.loan_type })),
   }), [value, mortgages]);
 
-  const dom = domEstimate(MARKET.daysOnMarket, listPrice || value, value);
-  const expectedSale = Math.round((listPrice || value) * MARKET.listToSale);
+  // No days-on-market or expected-sale figure: both need this area's real sold
+  // history, and we have none. What we can state is how this list price sits
+  // against the seller's own JULY Value estimate.
   const premium = value ? (listPrice || value) / value - 1 : 0;
+  const vsEstimate = (listPrice || value) - value;
   const positioning =
     premium < -0.015
       ? { label: "Priced to spark competition", tone: "text-teal-deep bg-teal-soft", note: "Below the estimate — more showings, more offers, often a better final number." }
@@ -167,7 +175,7 @@ export default function SellPage() {
             </div>
             <div className="space-y-3 p-5 sm:p-6">
               {[
-                { icon: TrendingUp, t: "Pricing lab", d: "Test list prices against your estimate and recent nearby sales — see how each choice changes your time on market." },
+                { icon: TrendingUp, t: "Pricing lab", d: "Test list prices against your estimate and real nearby sales — see exactly where each choice puts you." },
                 { icon: PiggyBank, t: "Net proceeds, to the dollar", d: "Commission, GST, mortgage payout and penalty, legal, moving — the real number, not the sticker price." },
                 { icon: Hammer, t: "A roadmap built from your home", d: "Your own inventory and records become the prep checklist — fix what inspectors will find, skip what doesn't pay." },
               ].map((b) => (
@@ -310,22 +318,27 @@ export default function SellPage() {
               </div>
 
               <div className="mt-4 grid grid-cols-3 gap-2 text-center">
-                <div className="rounded-xl bg-[#f4f6f5] p-3">
+                <div className="min-w-0 rounded-xl bg-[#f4f6f5] p-3">
                   <p className="tabular text-lg font-extrabold">{cad(listPrice)}</p>
                   <p className="text-[11px] font-semibold text-gray-500">List price</p>
                 </div>
-                <div className="rounded-xl bg-[#f4f6f5] p-3">
-                  <p className="tabular text-lg font-extrabold">≈ {dom} days</p>
-                  <p className="text-[11px] font-semibold text-gray-500">Est. time on market</p>
+                <div className="min-w-0 rounded-xl bg-[#f4f6f5] p-3">
+                  <p className="tabular text-lg font-extrabold">{compact(value)}</p>
+                  <p className="text-[11px] font-semibold text-gray-500">JULY Value estimate</p>
                 </div>
-                <div className="rounded-xl bg-[#f4f6f5] p-3">
-                  <p className="tabular text-lg font-extrabold">{compact(expectedSale)}</p>
-                  <p className="text-[11px] font-semibold text-gray-500">Typical sale price*</p>
+                <div className="min-w-0 rounded-xl bg-[#f4f6f5] p-3">
+                  <p className={`tabular text-lg font-extrabold ${Math.abs(premium) < 0.005 ? "" : vsEstimate > 0 ? "text-coral" : "text-teal-deep"}`}>
+                    {vsEstimate === 0 ? "—" : <>{vsEstimate > 0 ? "+" : "−"}{(Math.abs(premium) * 100).toFixed(1)}%</>}
+                  </p>
+                  <p className="text-[11px] font-semibold text-gray-500">
+                    {vsEstimate === 0 ? "On the estimate" : <>{vsEstimate > 0 ? "Above" : "Below"} by {compact(Math.abs(vsEstimate))}</>}
+                  </p>
                 </div>
               </div>
-              <p className="mt-2 text-[11px] text-gray-400">
-                *Based on {MARKET.area} averaging {MARKET.daysOnMarket} days on market and selling at {(MARKET.listToSale * 100).toFixed(1)}% of list.
-                {" "}Estimate by JULY Value (julyvalue.com), operated by JULY Realty Inc. Not an appraisal.
+              <p className="mt-2 text-[11px] leading-relaxed text-gray-400">
+                Estimate by JULY Value (julyvalue.com), operated by JULY Realty Inc. Not an appraisal.
+                How long a home takes to sell depends on this area&apos;s recent sold history — your
+                advisor has that, and it is the conversation this page is meant to start.
               </p>
 
               <div className="mt-5 border-t border-line pt-4">
@@ -333,6 +346,13 @@ export default function SellPage() {
                   Recent sales near you
                   {compsLive && <span className="rounded-full bg-teal-soft px-2 py-0.5 text-[10px] font-extrabold tracking-normal text-teal-deep">Live · JULY</span>}
                 </p>
+                {comps.length === 0 && (
+                  <p className="mt-2 text-[13px] leading-relaxed text-gray-500">
+                    No sold comparables are loaded for your area yet. Rather than show you sales that
+                    aren&apos;t real, this stays empty — ask your advisor to pull the recent solds, which
+                    is the number that actually sets your price.
+                  </p>
+                )}
                 <ul className="mt-2 space-y-2">
                   {comps.slice(0, 4).map((s) => {
                     // How the comp's sale price compares to YOUR trial list price.

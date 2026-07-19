@@ -57,7 +57,7 @@ const PERSONAS: Record<PersonaKey, {
     cta: { label: "Get my free valuation", href: "/worth" },
     cta2: { label: "See the selling tools", href: "/hub/sell?demo=1" },
     features: [
-      { icon: Tag, h: "A pricing lab, not a guess", b: "Test list prices against live market data and see how each choice changes your time on market." },
+      { icon: Tag, h: "A pricing lab, not a guess", b: "Test list prices against your estimate and live market data, and see exactly where each choice puts you." },
       { icon: Calculator, h: "Net proceeds to the dollar", b: "Commission, taxes, mortgage payout and penalty, legal, moving — the real number, before you commit." },
       { icon: Map, h: "A roadmap built from your home", b: "Fix what inspectors will find, skip what doesn't pay back, and walk into listing day ready." },
       { icon: Gauge, h: "A real evaluation in one day", b: "A licensed pro prepares your market evaluation within one business day — a person, not an algorithm." },

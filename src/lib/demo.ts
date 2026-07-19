@@ -147,18 +147,18 @@ export const BUYER_PROVIDER_CATEGORIES = [
 
 /* ------------------------------------------------------------------ */
 
+/**
+ * Seeded story for the DEMO hub only. Every field here is invented, so nothing
+ * in it may render in live mode — check the `demo` flag at the call site.
+ * Rates were removed deliberately: real published rates now come from the Bank
+ * of Canada via ho_market_rates, and a sample rate sitting beside a real one is
+ * how a planning figure gets mistaken for a quote.
+ */
 export const MARKET = {
   area: "Arbutus Ridge",
   cityLine: "Vancouver West (V6L)",
   daysOnMarket: 21,
   listToSale: 0.986,
-  rates: [
-    { label: "5-yr fixed", rate: 4.39 },
-    { label: "3-yr fixed", rate: 4.19 },
-    { label: "1-yr fixed", rate: 4.89 },
-    { label: "5-yr variable", rate: 4.95 },
-  ],
-  rateHistory: [5.34, 5.29, 5.31, 5.18, 5.02, 4.96, 4.88, 4.91, 4.79, 4.66, 4.71, 4.58, 4.49, 4.52, 4.44, 4.39],
   recentSales: [
     { price: 2150000, address: "2856 W 21st Ave", date: "2026-06-28" },
     { price: 1893000, address: "3175 W 19th Ave", date: "2026-06-12" },
@@ -172,15 +172,6 @@ export const MARKET = {
     { label: "2698 W 22nd Ave", value: 2064000 },
   ],
 };
-
-export const REFI_PRODUCTS = [
-  { label: "1-Year Fixed", rate: 4.89, amortYears: 25 },
-  { label: "3-Year Fixed", rate: 4.19, amortYears: 25 },
-  { label: "5-Year Fixed", rate: 4.39, amortYears: 25 },
-  { label: "5-Year Variable", rate: 4.95, amortYears: 25 },
-  { label: "10-Year Fixed", rate: 5.24, amortYears: 25 },
-  { label: "HELOC", rate: 5.45, amortYears: 25 },
-];
 
 /* ------------------------------------------------------------------ */
 /* Demo dataset — one fully-loaded hub + a pro book of business.       */
