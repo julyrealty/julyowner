@@ -351,6 +351,20 @@ Deno.serve(async (req) => {
         throw new Error(`signed URL failed: ${signErr?.message ?? "no URL returned"}`);
       }
 
+      /* ---- credits: check before spending money upstream ----
+         Gating is off until `credits_enforced` is 'true', so the ledger can
+         record real usage for a while before anyone is ever refused. */
+      const credCfg = await cfg(admin, ["credits_enforced", `credits_cost_${scanType}`]);
+      const enforcing = (credCfg["credits_enforced"] ?? "").toLowerCase() === "true";
+      const cost = Math.max(0, parseInt(credCfg[`credits_cost_${scanType}`] ?? "0", 10) || 0);
+
+      if (enforcing && cost > 0) {
+        const { data: bal } = await admin.rpc("ho_credit_balance_for", { p_user: user.id });
+        if ((bal ?? 0) < cost) {
+          return json({ error: "insufficient_credits", needed: cost, balance: bal ?? 0 }, 402);
+        }
+      }
+
       const { data: hub } = await admin.from("ho_hubs").select("full_address").eq("id", hubId).maybeSingle();
 
       const res = await fetch(`${base}/scans`, {
@@ -381,7 +395,26 @@ Deno.serve(async (req) => {
         scan_type: scanType, job_id: created.jobId, status: "pending", started_by: user.id,
       }).select("id").maybeSingle();
 
-      return json({ job_id: created.jobId, scan_id: rowIns?.id ?? null, status: created.status ?? "processing" });
+      /* Debit only now — the upstream job exists, so we never charge for a
+         review that failed to start. The poller refunds if it fails later. */
+      let balance: number | null = null;
+      if (cost > 0 && rowIns?.id) {
+        const { data: newBal, error: spendErr } = await admin.rpc("ho_spend_credits", {
+          p_user: user.id, p_amount: cost, p_reason: "scan",
+          p_scan_id: rowIns.id, p_note: `${scanType} review`,
+        });
+        if (spendErr) {
+          // Ledger trouble must not cost the user a review they already started.
+          console.error(`[ho-scan] credit debit failed for scan ${rowIns.id}: ${spendErr.message}`);
+        } else {
+          balance = newBal as number;
+        }
+      }
+
+      return json({
+        job_id: created.jobId, scan_id: rowIns?.id ?? null,
+        status: created.status ?? "processing", spent: cost || 0, balance,
+      });
     }
 
     /* ---------------- action: status ---------------- */
