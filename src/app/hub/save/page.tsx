@@ -108,15 +108,21 @@ export default function SaveMoney() {
                     <p className="text-xs text-gray-400">at your {primary.rate.toFixed(2)}%</p>
                   </div>
                   <div className="rounded-xl border border-line p-3">
-                    <p className="text-xs font-bold uppercase tracking-wide text-gray-400">Best posted rate</p>
+                    {/* MARKET.rates is a planning sample, not a live feed — say so
+                        rather than implying we quote today's market. */}
+                    <p className="text-xs font-bold uppercase tracking-wide text-gray-400">At a sample rate</p>
                     <p className="tabular mt-0.5 text-2xl font-extrabold text-teal">{cad(renewal.payBest)}<span className="text-xs font-bold text-gray-400">/mo</span></p>
                     <p className="text-xs text-gray-400">at {renewal.best.rate.toFixed(2)}% · {renewal.best.label}</p>
                   </div>
                 </div>
                 <p className={`mt-3 text-sm font-bold ${renewal.saves >= 1 ? "text-emerald-600" : "text-amber-600"}`}>
                   {renewal.saves >= 1
-                    ? `≈ ${cad(renewal.saves)}/mo less at today's best posted rate`
-                    : "Rates are higher now — locking early could protect you."}
+                    ? `≈ ${cad(renewal.saves)}/mo less at that rate`
+                    : "That sample rate sits above yours — locking early could protect you."}
+                </p>
+                <p className="mt-1 text-[11px] leading-relaxed text-gray-400">
+                  Sample rates for planning only — not a live quote. Your broker shops the real number,
+                  and it is usually better than anything posted.
                 </p>
                 {renewalSent ? (
                   <div className="mt-4 rounded-xl bg-teal-soft p-3 text-center">
