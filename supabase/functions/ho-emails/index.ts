@@ -24,6 +24,12 @@ async function cfg(k: string): Promise<string> {
 const esc = (s: unknown) => String(s ?? "").replace(/[<>&\"]/g, (c) => ({ "<": "&lt;", ">": "&gt;", "&": "&amp;", '"': "&quot;" }[c] as string));
 const money = (n: number) => "$" + Math.round(n).toLocaleString("en-CA");
 
+/** Scanner ids -> what to call them in a message to a human. */
+const SCAN_LABEL: Record<string, string> = {
+  inspection: "inspection report", strata: "strata document",
+  title: "title search", pds: "property disclosure", contract: "contract",
+};
+
 /** Instant JULY Value estimate for a free-text address; null when not covered.
  *  Retries with "number + first street word" when the full line misses. */
 async function jvQuickEstimate(fullAddress: string): Promise<{ estimate: number; low: number; high: number; confidence: string; attribution?: string } | null> {
@@ -105,7 +111,7 @@ Deno.serve(async (req: Request) => {
   const site = await cfg("site_url");
   const ops = (await cfg("ops_email")) || "info@july.ca";
 
-  if (action === "monthly" || action === "test" || action === "dup_alert" || action === "valuation_lead" || action === "weekly_pro") {
+  if (action === "monthly" || action === "test" || action === "dup_alert" || action === "valuation_lead" || action === "weekly_pro" || action === "scan_ready") {
     const secret = req.headers.get("x-cron-secret");
     if (!secret || secret !== (await cfg("cron_secret"))) {
       return new Response(JSON.stringify({ error: "forbidden" }), { status: 403, headers: JSONH });
@@ -116,6 +122,42 @@ Deno.serve(async (req: Request) => {
         layout("Everything is wired up",
           `<p style=\"font-size:15px;line-height:1.6\">This is a live test from your JULYOwner platform, sent through Brevo.</p>
            <p><a href=\"${site}\" style=\"display:inline-block;background:#0e7c7b;color:#ffffff;border-radius:999px;padding:12px 22px;font-weight:700;text-decoration:none\">Open JULYOwner</a></p>`));
+      return new Response(JSON.stringify({ ok }), { headers: JSONH });
+    }
+
+    /* An AI review finished while the reader was elsewhere — tell them. */
+    if (action === "scan_ready") {
+      const { data: scan } = await admin.from("ho_scans")
+        .select("id,hub_id,document_name,scan_type,summary,findings,started_by")
+        .eq("id", String(body.scan_id)).maybeSingle();
+      if (!scan) return new Response(JSON.stringify({ error: "not found" }), { status: 404, headers: JSONH });
+
+      // Prefer whoever started it; fall back to the hub's joined members.
+      let to: { email: string; name?: string }[] = [];
+      if (scan.started_by) {
+        const { data: m } = await admin.from("ho_hub_members")
+          .select("email,first_name").eq("hub_id", scan.hub_id).eq("user_id", scan.started_by).maybeSingle();
+        if (m?.email) to = [{ email: m.email as string, name: (m.first_name as string) ?? undefined }];
+      }
+      if (to.length === 0) {
+        const { data: ms } = await admin.from("ho_hub_members")
+          .select("email,first_name").eq("hub_id", scan.hub_id).eq("status", "joined");
+        to = (ms ?? []).filter((m) => m.email).map((m) => ({ email: m.email as string, name: (m.first_name as string) ?? undefined }));
+      }
+      if (to.length === 0) return new Response(JSON.stringify({ ok: false, reason: "no recipient" }), { headers: JSONH });
+
+      const label = SCAN_LABEL[String(scan.scan_type)] ?? "document";
+      const finds = Array.isArray(scan.findings) ? (scan.findings as string[]).slice(0, 5) : [];
+      const html = layout(`Your ${esc(label)} review is ready`,
+        `<p style=\"font-size:15px;line-height:1.6\">We finished reading <b>${esc(scan.document_name ?? "your document")}</b>.</p>
+         ${scan.summary ? `<div style=\"background:#f6f4ef;border-radius:12px;padding:16px;margin-top:14px;font-size:14px;line-height:1.6\">${esc(String(scan.summary).slice(0, 700))}</div>` : ""}
+         ${finds.length ? `<p style=\"font-size:12px;font-weight:800;letter-spacing:.06em;color:#5a6462;margin:18px 0 4px\">KEY FINDINGS</p>
+           <ul style=\"font-size:14px;line-height:1.6;margin:0;padding-left:18px\">${finds.map((f) => `<li style=\"margin:4px 0\">${esc(f)}</li>`).join("")}</ul>` : ""}
+         <p style=\"margin-top:18px\"><a href=\"${site}/hub/scan\" style=\"display:inline-block;background:#0e7c7b;color:#ffffff;border-radius:999px;padding:12px 22px;font-weight:700;text-decoration:none\">Open the full review</a></p>`,
+        "#0e7c7b",
+        "An AI reading of the document you uploaded — helpful for knowing what to ask, not a substitute for professional advice.");
+      const ok = await send(to, `Your ${label} review is ready`, html);
+      await admin.from("ho_email_log").insert({ kind: "scan", hub_id: scan.hub_id, ok, recipients: to.length });
       return new Response(JSON.stringify({ ok }), { headers: JSONH });
     }
 

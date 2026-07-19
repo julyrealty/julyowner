@@ -137,6 +137,25 @@ async function upstreamError(res: Response): Promise<string> {
 /* Handler                                                             */
 /* ------------------------------------------------------------------ */
 
+/** Turn a completed upstream scan into the shape we persist and render. */
+function outcomeFrom(scan) {
+  const items = scan.scannerId === "inspection"
+    ? extractItems(`${scan.summary ?? ""}\n${scan.report ?? ""}`)
+    : [];
+  const md = scan.summary ?? scan.report ?? "";
+  const findings = String(md).split(/\r?\n/)
+    .filter((l) => /^\s*(?:[-*•]|\d+[.)])\s+/.test(l))
+    .map((l) => l.replace(/^\s*(?:[-*•]|\d+[.)])\s+/, "").replace(/\*\*?/g, "").replace(/`/g, "").trim())
+    .filter(Boolean)
+    .slice(0, 8);
+  return {
+    summary: scan.summary ?? null,
+    report: scan.report ?? null,
+    findings,
+    items,
+  };
+}
+
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: CORS });
   if (req.method !== "POST") return json({ error: "Method not allowed" }, 405);
@@ -145,15 +164,100 @@ Deno.serve(async (req) => {
     let body;
     try { body = await req.json(); } catch { return json({ error: "Invalid JSON body" }, 400); }
     const action = body?.action;
+
+    const supabaseUrl = Deno.env.get("SUPABASE_URL") ?? "";
+    const admin = createClient(supabaseUrl, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "");
+
+    /* ---------------- action: poll (cron only) ----------------
+       Finishes scans the browser is no longer watching. This is what makes a
+       scan survive the user closing the dialog or the whole browser. */
+    if (action === "poll") {
+      const secret = req.headers.get("x-cron-secret");
+      const conf0 = await cfg(admin, ["cron_secret", "buyeraipro_api_url", "buyeraipro_api_key", "site_url"]);
+      if (!secret || secret !== conf0["cron_secret"]) return json({ error: "forbidden" }, 403);
+      const base0 = apiBase(conf0["buyeraipro_api_url"] ?? "");
+      const key0 = conf0["buyeraipro_api_key"] ?? "";
+      if (!base0 || !key0) return json({ error: "not configured" }, 503);
+      const H0 = { "x-api-key": key0, "Content-Type": "application/json" };
+
+      const { data: pending } = await admin
+        .from("ho_scans").select("*").eq("status", "pending").not("job_id", "is", null)
+        .order("created_at", { ascending: true }).limit(25);
+
+      let done = 0, failed = 0, notified = 0;
+      for (const row of pending ?? []) {
+        // Give up on jobs that have been running far longer than any real scan.
+        const ageMin = (Date.now() - new Date(row.created_at).getTime()) / 60000;
+        try {
+          const r = await fetch(`${base0}/scans/${encodeURIComponent(row.job_id)}`, { headers: H0 });
+          if (!r.ok) {
+            if (ageMin > 60) {
+              await admin.from("ho_scans").update({
+                status: "failed", error: "The scan service stopped responding.", completed_at: new Date().toISOString(),
+              }).eq("id", row.id);
+              failed++;
+            }
+            continue;
+          }
+          const scan = await r.json();
+          if (scan.status === "complete") {
+            const o = outcomeFrom(scan);
+            await admin.from("ho_scans").update({
+              status: "complete",
+              summary: o.summary,
+              findings: o.findings,
+              items: o.items,
+              completed_at: new Date().toISOString(),
+            }).eq("id", row.id);
+            await admin.from("ho_activities").insert({
+              hub_id: row.hub_id, member_email: null,
+              action: "AI review finished", detail: row.document_name ?? row.scan_type,
+            });
+            done++;
+            // Tell the owner it is ready — they are almost certainly elsewhere.
+            try {
+              const notifyRes = await fetch(`${supabaseUrl}/functions/v1/ho-emails`, {
+                method: "POST",
+                headers: {
+                  "content-type": "application/json",
+                  "x-cron-secret": conf0["cron_secret"],
+                  Authorization: `Bearer ${Deno.env.get("SUPABASE_ANON_KEY") ?? ""}`,
+                },
+                body: JSON.stringify({ action: "scan_ready", scan_id: row.id }),
+              });
+              if (notifyRes.ok) {
+                await admin.from("ho_scans").update({ notified_at: new Date().toISOString() }).eq("id", row.id);
+                notified++;
+              }
+            } catch (e) {
+              console.error(`[ho-scan] notify failed: ${e instanceof Error ? e.message : String(e)}`);
+            }
+          } else if (scan.status === "failed") {
+            await admin.from("ho_scans").update({
+              status: "failed",
+              error: scan.errorMessage || "The scan failed.",
+              completed_at: new Date().toISOString(),
+            }).eq("id", row.id);
+            failed++;
+          } else if (ageMin > 60) {
+            await admin.from("ho_scans").update({
+              status: "failed", error: "The scan timed out.", completed_at: new Date().toISOString(),
+            }).eq("id", row.id);
+            failed++;
+          }
+        } catch (e) {
+          console.error(`[ho-scan] poll ${row.id}: ${e instanceof Error ? e.message : String(e)}`);
+        }
+      }
+      return json({ checked: (pending ?? []).length, done, failed, notified });
+    }
+
+    /* ---------------- everything else needs a signed-in member ---------------- */
     const hubId = body?.hub_id;
     if (!action || typeof hubId !== "string" || !hubId) {
       return json({ error: "action and hub_id are required" }, 400);
     }
 
-    const supabaseUrl = Deno.env.get("SUPABASE_URL") ?? "";
-    const admin = createClient(supabaseUrl, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "");
-
-    // Verify the caller's JWT with a user-scoped client.
     const authHeader = req.headers.get("Authorization");
     if (!authHeader) return json({ error: "Not signed in" }, 401);
     const userClient = createClient(supabaseUrl, Deno.env.get("SUPABASE_ANON_KEY") ?? "", {
@@ -165,6 +269,15 @@ Deno.serve(async (req) => {
 
     // Membership gate — outsiders learn nothing about the hub.
     if (!(await isHubMember(admin, hubId, user))) return json({ error: "Not found" }, 404);
+
+    /* ---------------- action: list ---------------- */
+    if (action === "list") {
+      const { data: rows } = await admin
+        .from("ho_scans")
+        .select("id,document_id,document_name,scan_type,status,summary,findings,items,error,created_at,completed_at")
+        .eq("hub_id", hubId).order("created_at", { ascending: false }).limit(30);
+      return json({ scans: rows ?? [] });
+    }
 
     const conf = await cfg(admin, ["buyeraipro_api_url", "buyeraipro_api_key"]);
     const rawUrl = conf["buyeraipro_api_url"];
@@ -223,7 +336,15 @@ Deno.serve(async (req) => {
       }
       const created = await res.json();
       if (!created?.jobId) return json({ error: "The scan service did not return a job id." }, 502);
-      return json({ job_id: created.jobId, status: created.status ?? "processing" });
+
+      // Persist BEFORE returning: from here the job completes with or without
+      // this browser tab.
+      const { data: rowIns } = await admin.from("ho_scans").insert({
+        hub_id: hubId, document_id: doc.id, document_name: doc.name,
+        scan_type: scanType, job_id: created.jobId, status: "pending", started_by: user.id,
+      }).select("id").maybeSingle();
+
+      return json({ job_id: created.jobId, scan_id: rowIns?.id ?? null, status: created.status ?? "processing" });
     }
 
     /* ---------------- action: status ---------------- */
@@ -243,9 +364,12 @@ Deno.serve(async (req) => {
       const scan = await res.json();
 
       if (scan.status === "complete") {
-        const items = scan.scannerId === "inspection"
-          ? extractItems(`${scan.summary ?? ""}\n${scan.report ?? ""}`)
-          : [];
+        const o = outcomeFrom(scan);
+        // Mirror into ho_scans so the record matches what the user just saw.
+        await admin.from("ho_scans").update({
+          status: "complete", summary: o.summary, findings: o.findings, items: o.items,
+          completed_at: new Date().toISOString(),
+        }).eq("hub_id", hubId).eq("job_id", jobId).eq("status", "pending");
         // Activity log — best-effort, never fails the response.
         const { error: actErr } = await admin.from("ho_activities").insert({
           hub_id: hubId,
@@ -263,11 +387,15 @@ Deno.serve(async (req) => {
             property_address: scan.propertyAddress ?? null,
             completed_at: scan.completedAt ?? null,
           },
-          items,
+          items: o.items,
         });
       }
 
       if (scan.status === "failed") {
+        await admin.from("ho_scans").update({
+          status: "failed", error: scan.errorMessage || "The scan failed.",
+          completed_at: new Date().toISOString(),
+        }).eq("hub_id", hubId).eq("job_id", jobId).eq("status", "pending");
         return json({ status: "failed", error: scan.errorMessage || "The scan failed. Please try again." });
       }
       return json({ status: scan.status ?? "processing" });

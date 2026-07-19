@@ -2,16 +2,26 @@
 // AI Review — the document scanners, presented as a first-class part of the hub.
 // White-labelled: the buyer picks what they want read, drops the file in, and
 // stays here throughout. Nothing to sign up for, no second account.
-import { useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import {
   FileSearch, Building2, ScrollText, ClipboardCheck, FileSignature,
-  UploadCloud, Sparkles, ArrowRight, ShieldCheck, Clock,
+  UploadCloud, Sparkles, ArrowRight, ShieldCheck, Clock, Check, AlertTriangle, Loader2,
 } from "lucide-react";
 import { useHub, type Doc } from "@/lib/store";
+import { sb } from "@/lib/supabase";
+import { relTime } from "@/lib/calc";
 import { Card, SectionLabel, Modal, Pill } from "@/components/ui";
 import { ScanFlow } from "@/components/scan-flow";
+
+/** A persisted review — survives closing the dialog, or the whole browser. */
+type ScanRow = {
+  id: string; document_name: string | null; scan_type: string;
+  status: "pending" | "complete" | "failed";
+  summary: string | null; findings: string[]; items: { item_type: string; brand: string | null; age_years: number | null }[];
+  error: string | null; created_at: string; completed_at: string | null;
+};
 
 type Scanner = {
   key: string; label: string; icon: typeof FileSearch;
@@ -57,7 +67,29 @@ export default function AiReview() {
   const [scanDoc, setScanDoc] = useState<Doc | null>(null);
   const [scanType, setScanType] = useState<string | undefined>();
   const [err, setErr] = useState<string | null>(null);
+  const [rows, setRows] = useState<ScanRow[] | null>(null);
+  const [open, setOpen] = useState<ScanRow | null>(null);
   const fileRef = useRef<HTMLInputElement>(null);
+
+  /* Your reviews — loaded from the server, so they are here whether or not
+     you stayed on this page while one was running. */
+  const loadRows = useCallback(async () => {
+    if (demo || !hub) { setRows([]); return; }
+    try {
+      const { data } = await sb().functions.invoke("ho-scan", { body: { action: "list", hub_id: hub.id } });
+      setRows(((data as { scans?: ScanRow[] })?.scans) ?? []);
+    } catch { setRows([]); }
+  }, [demo, hub]);
+
+  useEffect(() => { void loadRows(); }, [loadRows]);
+
+  // While something is running, refresh quietly so it flips to Ready on its own.
+  const anyRunning = (rows ?? []).some((r) => r.status === "pending");
+  useEffect(() => {
+    if (!anyRunning) return;
+    const t = setInterval(() => { void loadRows(); }, 15000);
+    return () => clearInterval(t);
+  }, [anyRunning, loadRows]);
 
   function choose(s: Scanner) {
     setErr(null);
@@ -119,6 +151,47 @@ export default function AiReview() {
           </Card>
         )}
 
+        {/* YOUR REVIEWS — the record of every scan, running or finished. */}
+        {rows && rows.length > 0 && (
+          <section className="mb-8">
+            <SectionLabel>Your reviews</SectionLabel>
+            <Card className="divide-y divide-line">
+              {rows.map((r) => {
+                const meta = SCANNERS.find((s) => s.key === r.scan_type);
+                return (
+                  <button key={r.id} onClick={() => r.status === "complete" && setOpen(r)}
+                    disabled={r.status !== "complete"}
+                    className="flex w-full items-center gap-3 p-4 text-left transition enabled:hover:bg-gray-50 disabled:cursor-default">
+                    <span className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-xl ${
+                      r.status === "complete" ? "bg-teal-soft text-teal-deep"
+                      : r.status === "failed" ? "bg-red-50 text-coral" : "bg-gray-100 text-gray-400"}`}>
+                      {r.status === "complete" ? <Check size={17} strokeWidth={3} />
+                        : r.status === "failed" ? <AlertTriangle size={16} />
+                        : <Loader2 size={16} className="animate-spin" />}
+                    </span>
+                    <span className="min-w-0 flex-1">
+                      <span className="block truncate text-sm font-bold">{r.document_name || "Document"}</span>
+                      <span className="block text-[11px] text-gray-400">
+                        {meta?.label ?? r.scan_type} · {r.status === "pending"
+                          ? `started ${relTime(r.created_at)} — still reading`
+                          : r.status === "failed" ? (r.error || "failed")
+                          : `ready ${relTime(r.completed_at ?? r.created_at)}`}
+                      </span>
+                    </span>
+                    {r.status === "complete" && <span className="shrink-0 text-[12px] font-bold text-teal-deep">View</span>}
+                  </button>
+                );
+              })}
+            </Card>
+            {anyRunning && (
+              <p className="mt-2 text-[11px] text-gray-400">
+                Still reading — you can leave this page or close the browser. We&apos;ll email you when it&apos;s ready
+                and it will be waiting here.
+              </p>
+            )}
+          </section>
+        )}
+
         <SectionLabel right={<Link href={`/hub/home/documents${q}`} className="link text-xs">All my documents</Link>}>
           Choose what to review
         </SectionLabel>
@@ -174,14 +247,44 @@ export default function AiReview() {
       <input ref={fileRef} type="file" accept="application/pdf,.pdf" className="hidden"
         onChange={(e) => onFile(e.target.files)} />
 
-      <Modal open={!!scanDoc} onClose={() => { setScanDoc(null); setScanType(undefined); }} title="AI review">
+      {/* Closing this no longer cancels anything — the job is server-side. */}
+      <Modal open={!!scanDoc} onClose={() => { setScanDoc(null); setScanType(undefined); void loadRows(); }} title="AI review">
         {scanDoc && (
           <ScanFlow key={scanDoc.id} doc={scanDoc} initialType={scanType}
-            onClose={() => { setScanDoc(null); setScanType(undefined); }} />
+            onClose={() => { setScanDoc(null); setScanType(undefined); void loadRows(); }} />
         )}
       </Modal>
 
-      {!hub && !demo && null}
+      {/* A finished review, reopened from the list. */}
+      <Modal open={!!open} onClose={() => setOpen(null)} title={open?.document_name || "Review"}>
+        {open && (
+          <div className="space-y-4">
+            <Pill tone="teal">Review complete</Pill>
+            {open.summary && (
+              <div className="max-h-56 overflow-y-auto whitespace-pre-wrap rounded-xl bg-cream p-4 text-sm leading-relaxed">
+                {open.summary}
+              </div>
+            )}
+            {open.findings?.length > 0 && (
+              <div>
+                <p className="section-label mb-2">Key findings</p>
+                <ul className="space-y-1.5">
+                  {open.findings.map((f, i) => (
+                    <li key={i} className="flex gap-2 text-sm"><span className="mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full bg-teal" />{f}</li>
+                  ))}
+                </ul>
+              </div>
+            )}
+            <p className="text-[11px] leading-relaxed text-gray-400">
+              An AI reading of your document — useful for knowing what to ask, not a substitute for
+              professional advice.
+            </p>
+            <Link href={`/hub/messages${q}`} className="btn btn-primary btn-md w-full">
+              Ask my advisor about this <ArrowRight size={15} />
+            </Link>
+          </div>
+        )}
+      </Modal>
     </div>
   );
 }

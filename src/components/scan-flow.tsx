@@ -210,7 +210,12 @@ export function ScanFlow({ doc, onClose, initialType }: { doc: Doc; onClose: () 
         <p className="font-bold">{msg}</p>
         <p className="break-all text-xs text-gray-400">Scanning {doc.name} · {elapsed}s elapsed</p>
         <Progress value={Math.min(92, (elapsed / (demo ? 2.5 : 150)) * 100)} />
-        <p className="text-xs text-gray-400">You can keep this window open — most scans finish in 1–3 minutes.</p>
+        {/* The job is server-side now, so leaving genuinely is safe. */}
+        <p className="text-xs leading-relaxed text-gray-400">
+          You can close this and carry on — the review keeps running. We&apos;ll email you when it&apos;s
+          ready, and it will be waiting under <b>Your reviews</b>.
+        </p>
+        <button className="btn btn-ghost btn-sm" onClick={onClose}>Close and keep working</button>
       </div>
     );
   }
