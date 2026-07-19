@@ -2,7 +2,7 @@
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { useHub } from "@/lib/store";
-import { cad, fmtDate } from "@/lib/calc";
+import { cad, fmtDate, streetLine } from "@/lib/calc";
 import { Card, SectionLabel, Modal, Field } from "@/components/ui";
 import { Gauge } from "@/components/charts";
 import { Umbrella, ShieldCheck, FolderOpen, AlertTriangle, Grid2x2, CheckCircle2 } from "lucide-react";
@@ -34,7 +34,7 @@ export default function MyHomeOverview() {
               <div className="flex h-24 items-center justify-center rounded-xl bg-teal-soft">
                 <span className="flex h-12 w-12 items-center justify-center rounded-xl bg-teal text-white shadow-lg">🏠</span>
               </div>
-              <p className="mt-4 text-center text-lg font-extrabold">{hub?.address1}</p>
+              <p className="mt-4 text-center text-lg font-extrabold">{streetLine(hub)}</p>
               <p className="text-center text-sm text-gray-500">{[hub?.city, hub?.region, hub?.postal].filter(Boolean).join(", ")}</p>
               <div className="mt-5 divide-y divide-line border-y border-line text-sm">
                 <div className="flex justify-between py-2.5"><span className="text-gray-500">Purchase price</span><span className="tabular font-bold">{hub?.purchase_price ? cad(hub.purchase_price) : "—"}</span></div>
@@ -100,10 +100,13 @@ export default function MyHomeOverview() {
                     <a href="mailto:hello@julyrealty.com?subject=JULYOwner home inventory visit" className="btn btn-ghost btn-md">Do it for me</a>
                   </div>
                 </div>
-                <div className="shrink-0 text-center">
-                  <Gauge value={avgRisk} />
-                  <p className="text-[11px] font-bold uppercase tracking-wide text-gray-400">Failure risk</p>
-                </div>
+                {/* An empty inventory means unassessed, not risk-free — no 0.0 gauge. */}
+                {inventory.length > 0 && (
+                  <div className="shrink-0 text-center">
+                    <Gauge value={avgRisk} />
+                    <p className="text-[11px] font-bold uppercase tracking-wide text-gray-400">Failure risk</p>
+                  </div>
+                )}
               </Card>
             </section>
 

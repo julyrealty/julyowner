@@ -6,7 +6,7 @@ import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { Printer, ArrowRight, Circle, Sparkles, AlertTriangle, CalendarDays } from "lucide-react";
 import { useHub } from "@/lib/store";
-import { cad, compact, fmtDate, valueSeries, tappableEquity } from "@/lib/calc";
+import { cad, compact, fmtDate, valueSeries, tappableEquity, streetLine } from "@/lib/calc";
 import { fetchCityMarket, type CityMarket } from "@/lib/platform";
 import { Card, SectionLabel, Avatar } from "@/components/ui";
 import { Sparkline, RangeSlider } from "@/components/charts";
@@ -140,7 +140,7 @@ export default function AnnualReport() {
                 Your home&apos;s year — {year}
               </h1>
               <p className="mt-2 text-sm font-semibold text-white/80">
-                {hub.unit ? `${hub.unit} – ` : ""}{hub.address1}
+                {streetLine(hub)}
                 {city ? ` · ${city}` : ""}{hub.region ? `, ${hub.region}` : ""}
               </p>
               <p className="mt-1 text-xs text-white/50">Prepared by {proName ? `${proName} · ` : ""}{proOrg}</p>

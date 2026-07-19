@@ -3,7 +3,7 @@ import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { ChevronRight, Clock, Mail, Phone, ArrowRight } from "lucide-react";
 import { useHub } from "@/lib/store";
-import { cad, compact, fmtDate, valueSeries } from "@/lib/calc";
+import { cad, compact, fmtDate, valueSeries, streetLine } from "@/lib/calc";
 import { fetchCityMarket, type CityMarket } from "@/lib/platform";
 import { MARKET, ARTICLES } from "@/lib/demo";
 import { Card, SectionLabel, Progress, Avatar, Modal } from "@/components/ui";
@@ -66,7 +66,7 @@ export default function HubDashboard() {
           </div>
           <Card className="w-full max-w-sm p-5 text-ink">
             <div className="flex items-center justify-between gap-2">
-              <p className="min-w-0 truncate font-bold">{hub?.unit ? `#${hub.unit} – ` : ""}{hub?.address1}</p>
+              <p className="min-w-0 truncate font-bold">{streetLine(hub)}</p>
               {(hub?.journey === "selling" || hub?.journey === "sold") && (
                 <span className="shrink-0 rounded-full bg-coral/10 px-2.5 py-0.5 text-[11px] font-extrabold text-coral">
                   {hub?.journey === "sold" ? "Sold" : "Selling"}

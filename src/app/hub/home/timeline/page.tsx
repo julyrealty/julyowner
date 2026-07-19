@@ -13,7 +13,7 @@ export default function TimelinePage() {
   const events = useMemo(() => {
     const history: { id: string; date: string; label: string; kind: "history" | "task"; icon: "home" | "bank" | "wrench" }[] = [];
     if (hub?.purchase_date) history.push({ id: "buy", date: hub.purchase_date, label: "You bought this home", kind: "history", icon: "home" });
-    history.push({ id: "tax", date: "2026-01-01", label: "Property tax assessment", kind: "history", icon: "bank" });
+    // Only this home's real events belong here — no invented milestones.
     const future = tasks
       .filter((t) => t.status === "pending" && t.due_date)
       .map((t) => ({ id: t.id, date: t.due_date as string, label: t.title, kind: "task" as const, icon: "wrench" as const }));
@@ -33,6 +33,17 @@ export default function TimelinePage() {
           </div>
           <button className="btn btn-primary btn-sm" onClick={() => setAddOpen(true)}><Plus size={15} /> Add</button>
         </div>
+
+        {events.length === 0 && (
+          <Card className="mx-auto mt-8 max-w-2xl p-6 text-center">
+            <p className="text-sm font-bold">Nothing on the timeline yet</p>
+            <p className="mx-auto mt-1 max-w-md text-[13px] leading-relaxed text-gray-500">
+              Add your home&apos;s inventory and its maintenance dates land here automatically — or add a
+              milestone yourself: a renovation, a new roof, the day you moved in.
+            </p>
+            <button className="btn btn-primary btn-sm mt-4" onClick={() => setAddOpen(true)}><Plus size={15} /> Add a milestone</button>
+          </Card>
+        )}
 
         <div className="relative mx-auto mt-8 max-w-2xl">
           <div className="absolute bottom-0 left-4 top-0 w-0.5 bg-teal-soft sm:left-1/2" />

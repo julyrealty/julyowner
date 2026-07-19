@@ -224,3 +224,10 @@ export function relTime(iso: string) {
   const mo = Math.floor(d / 30);
   return `${mo} month${mo > 1 ? "s" : ""} ago`;
 }
+
+/** The one place unit formatting lives — "#404 – 5535 Hastings Street".
+    A missing unit must never silently drop from a displayed address. */
+export function streetLine(h: { unit?: string | null; address1?: string | null } | null | undefined): string {
+  if (!h?.address1) return "";
+  return `${h.unit ? `#${h.unit} – ` : ""}${h.address1}`;
+}
