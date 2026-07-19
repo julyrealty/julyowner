@@ -40,8 +40,11 @@ const SERIES: Record<string, { label: string; kind: string; term_years: number |
   V80691335: { label: "Posted 5-year fixed", kind: "posted", term_years: 5 },
 };
 
+// Two years of weekly observations: the last one is "current", the rest is the
+// trend line. One request covers both, and re-upserting is idempotent.
+const WEEKS = 104;
 const VALET =
-  "https://www.bankofcanada.ca/valet/observations/group/chartered_bank_interest/json?recent=1";
+  `https://www.bankofcanada.ca/valet/observations/group/chartered_bank_interest/json?recent=${WEEKS}`;
 
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: CORS });
@@ -69,15 +72,23 @@ Deno.serve(async (req) => {
     return json({ error: `valet unreachable: ${String(e)}` }, 502);
   }
 
-  // recent=1 returns a single observation, but take the last defensively.
-  const obs = payload.observations?.[payload.observations.length - 1];
-  if (!obs?.d) return json({ error: "no observations" }, 502);
+  const all = (payload.observations ?? []).filter((o) => o?.d);
+  if (all.length === 0) return json({ error: "no observations" }, 502);
+  // Pick the newest by DATE, never by array position: Valet returns this group
+  // newest-first, so trusting the last element silently stored a two-year-old
+  // figure as "today's rate".
+  const obs = all.reduce((a, b) => (String(a.d) >= String(b.d) ? a : b));
   const observedOn = String(obs.d);
 
+  const num = (o: Record<string, unknown>, id: string): number => {
+    const raw = (o[id] as { v?: string } | undefined)?.v;
+    return raw == null || raw === "" ? NaN : Number(raw);
+  };
+
   const rows: unknown[] = [];
+  const history: unknown[] = [];
   for (const [seriesId, meta] of Object.entries(SERIES)) {
-    const raw = (obs[seriesId] as { v?: string } | undefined)?.v;
-    const value = raw == null || raw === "" ? NaN : Number(raw);
+    const value = num(obs, seriesId);
     // A series can be absent or blank on a given day — skip rather than write a zero.
     if (!Number.isFinite(value)) continue;
     rows.push({
@@ -89,11 +100,24 @@ Deno.serve(async (req) => {
       observed_on: observedOn,
       updated_at: new Date().toISOString(),
     });
+    for (const o of all) {
+      const v = num(o, seriesId);
+      if (!o?.d || !Number.isFinite(v)) continue;
+      history.push({ series_id: seriesId, observed_on: String(o.d), value: v });
+    }
   }
   if (rows.length === 0) return json({ error: "no usable series" }, 502);
 
   const { error } = await admin.from("ho_market_rates").upsert(rows, { onConflict: "series_id" });
   if (error) return json({ error: error.message }, 500);
 
-  return json({ updated: rows.length, observed_on: observedOn });
+  // History is a nice-to-have: a failure here must not fail the current figures.
+  let historyRows = 0;
+  if (history.length > 0) {
+    const { error: hErr } = await admin
+      .from("ho_rate_history").upsert(history, { onConflict: "series_id,observed_on" });
+    if (!hErr) historyRows = history.length;
+  }
+
+  return json({ updated: rows.length, history: historyRows, observed_on: observedOn });
 });

@@ -3,7 +3,7 @@ import { useMemo, useState } from "react";
 import Link from "next/link";
 import { useHub, Mortgage } from "@/lib/store";
 import { cad, paidBreakdown, extraPaymentSavings, refiScenario, monthlyPayment, monthsBetween } from "@/lib/calc";
-import { MARKET, REFI_PRODUCTS } from "@/lib/demo";
+import { useMarketRates, useRateHistory, rateDate, SERIES } from "@/lib/rates";
 import { Card, SectionLabel, Modal, Field, Progress } from "@/components/ui";
 import { Donut, Sparkline } from "@/components/charts";
 import { ThumbsUp, ThumbsDown, Plus } from "lucide-react";
@@ -25,6 +25,8 @@ function monthsUntil(target: Date, from = new Date()): number {
 export default function SaveMoney() {
   const { mortgages, updateMortgage, addMortgage, createLead, demo } = useHub();
   const qs = demo ? "?demo=1" : "";
+  const rates = useMarketRates();
+  const primeHistory = useRateHistory(SERIES.prime);
   const primary = mortgages.find((m) => m.is_primary) || mortgages[0];
   const [extra, setExtra] = useState(250);
   const [years, setYears] = useState(10);
@@ -41,6 +43,20 @@ export default function SaveMoney() {
     () => (primary ? extraPaymentSavings(primary.balance, primary.rate, primary.amort_years, extra) : null),
     [primary, extra],
   );
+  // A ladder around the owner's own rate, rounded to quarter points. Replaces a
+  // list of named "products" at invented rates, which read as real offers and
+  // attached a dollar saving to each one.
+  const refiLadder = useMemo(() => {
+    if (!primary) return [];
+    const amort = Math.max(5, Math.round(primary.amort_years));
+    return [-1.5, -1, -0.5, 0, 0.5, 1].map((d) => {
+      // Anchor exactly on their rate; round only the steps away from it, so the
+      // comparison baseline is the loan they actually have.
+      const r = d === 0 ? primary.rate : Math.max(0.5, Math.round((primary.rate + d) * 4) / 4);
+      return { label: `At ${r.toFixed(2)}%`, rate: r, amortYears: amort };
+    });
+  }, [primary]);
+
   // Radar only lights up when a renewal is actually on the horizon (≤18 months out).
   const renewal = useMemo(() => {
     if (!primary?.term_months || !primary.start_date) return null;
@@ -49,10 +65,15 @@ export default function SaveMoney() {
     if (monthsLeft < 0 || monthsLeft > 18) return null;
     const elapsedYears = Math.max(0, monthsBetween(renewalDateOf(primary.start_date, 0), new Date())) / 12;
     const amortLeft = Math.max(5, primary.amort_years - elapsedYears);
-    const best = MARKET.rates.reduce((lo, r) => (r.rate < lo.rate ? r : lo));
     const payNow = monthlyPayment(primary.balance, primary.rate, amortLeft);
-    const payBest = monthlyPayment(primary.balance, best.rate, amortLeft);
-    return { date, monthsLeft, best, payNow, payBest, saves: payNow - payBest };
+    // No "best rate" claim: we do not have a live quote for this borrower, and
+    // inventing one either oversells the saving or talks them out of shopping.
+    // What we can do honestly is price the move itself, off their own rate.
+    const scenarios = [-1, -0.5, 0.5, 1].map((d) => {
+      const r = Math.max(0.5, primary.rate + d);
+      return { delta: d, rate: r, pay: monthlyPayment(primary.balance, r, amortLeft), diff: monthlyPayment(primary.balance, r, amortLeft) - payNow };
+    });
+    return { date, monthsLeft, payNow, scenarios };
   }, [primary]);
 
   return (
@@ -64,8 +85,10 @@ export default function SaveMoney() {
         </div>
       </section>
 
-      <div className="container-x grid gap-6 py-8 lg:grid-cols-[1fr_340px]">
-        <div className="space-y-8">
+      {/* min-w-0: grid children default to min-width:auto, so an overflow-x-auto
+          strip inside would otherwise widen the column past the viewport. */}
+      <div className="container-x grid min-w-0 gap-6 py-8 lg:grid-cols-[1fr_340px]">
+        <div className="min-w-0 space-y-8">
           {/* NO MORTGAGE YET — set up, or celebrate being mortgage-free */}
           {!primary && (
             <section>
@@ -101,28 +124,31 @@ export default function SaveMoney() {
                   <b>{renewal.date.toLocaleDateString("en-CA", { month: "long", year: "numeric" })}</b>. Lenders send their offer
                   4–6 months early — but their first offer is rarely their best.
                 </p>
-                <div className="mt-4 grid grid-cols-2 gap-3">
-                  <div className="rounded-xl border border-line p-3">
-                    <p className="text-xs font-bold uppercase tracking-wide text-gray-400">Payment today</p>
-                    <p className="tabular mt-0.5 text-2xl font-extrabold">{cad(renewal.payNow)}<span className="text-xs font-bold text-gray-400">/mo</span></p>
-                    <p className="text-xs text-gray-400">at your {primary.rate.toFixed(2)}%</p>
-                  </div>
-                  <div className="rounded-xl border border-line p-3">
-                    {/* MARKET.rates is a planning sample, not a live feed — say so
-                        rather than implying we quote today's market. */}
-                    <p className="text-xs font-bold uppercase tracking-wide text-gray-400">At a sample rate</p>
-                    <p className="tabular mt-0.5 text-2xl font-extrabold text-teal">{cad(renewal.payBest)}<span className="text-xs font-bold text-gray-400">/mo</span></p>
-                    <p className="text-xs text-gray-400">at {renewal.best.rate.toFixed(2)}% · {renewal.best.label}</p>
-                  </div>
+                <div className="mt-4 rounded-xl border border-line p-3">
+                  <p className="text-xs font-bold uppercase tracking-wide text-gray-400">Payment today</p>
+                  <p className="tabular mt-0.5 text-2xl font-extrabold">{cad(renewal.payNow)}<span className="text-xs font-bold text-gray-400">/mo</span></p>
+                  <p className="text-xs text-gray-400">at your {primary.rate.toFixed(2)}%</p>
                 </div>
-                <p className={`mt-3 text-sm font-bold ${renewal.saves >= 1 ? "text-emerald-600" : "text-amber-600"}`}>
-                  {renewal.saves >= 1
-                    ? `≈ ${cad(renewal.saves)}/mo less at that rate`
-                    : "That sample rate sits above yours — locking early could protect you."}
-                </p>
-                <p className="mt-1 text-[11px] leading-relaxed text-gray-400">
-                  Sample rates for planning only — not a live quote. Your broker shops the real number,
-                  and it is usually better than anything posted.
+                {/* What renewing at a different rate does to this balance. No
+                    "best rate" figure — we have no quote for this borrower. */}
+                <p className="section-label mt-4 mb-2">What renewing costs, by rate</p>
+                <div className="no-bar flex gap-2 overflow-x-auto pb-1">
+                  {renewal.scenarios.map((s) => (
+                    <div key={s.delta} className="min-w-[112px] shrink-0 rounded-xl border border-line p-3 text-center">
+                      <p className="text-[11px] font-bold uppercase tracking-wide text-gray-400">
+                        {s.delta > 0 ? "+" : ""}{s.delta}%
+                      </p>
+                      <p className="tabular mt-0.5 text-base font-extrabold">{s.rate.toFixed(2)}%</p>
+                      <p className="tabular text-[13px] font-bold">{cad(s.pay)}</p>
+                      <p className={`tabular mt-0.5 text-[11px] font-bold ${s.diff < 0 ? "text-emerald-600" : "text-coral"}`}>
+                        {s.diff < 0 ? "−" : "+"}{cad(Math.abs(s.diff))}/mo
+                      </p>
+                    </div>
+                  ))}
+                </div>
+                <p className="mt-2 text-[11px] leading-relaxed text-gray-400">
+                  Half a point either way, on your actual balance. Which side you land on is what the
+                  shopping is for — your broker gets the real quote.
                 </p>
                 {renewalSent ? (
                   <div className="mt-4 rounded-xl bg-teal-soft p-3 text-center">
@@ -202,54 +228,86 @@ export default function SaveMoney() {
             </section>
           )}
 
-          {/* RATES */}
-          <section>
-            <SectionLabel>Today&apos;s rates</SectionLabel>
-            <Card className="grid gap-6 p-6 sm:grid-cols-[1fr_200px]">
-              <div><Sparkline data={MARKET.rateHistory} color="var(--navy)" /></div>
-              <div className="space-y-2 text-sm">
-                {MARKET.rates.map((r) => (
-                  <div key={r.label} className="flex items-center justify-between border-b border-line pb-1.5 last:border-0">
-                    <span className="font-semibold text-gray-600">{r.label}</span>
-                    <span className="tabular font-extrabold">{r.rate.toFixed(2)}%</span>
-                  </div>
-                ))}
-                <p className="pt-1 text-[11px] text-gray-400">Sample posted rates for planning — your broker will beat the sticker.</p>
-              </div>
-            </Card>
-          </section>
+          {/* RATES — published by the Bank of Canada, refreshed daily. */}
+          {rates && (rates.prime || rates.posted.length > 0) && (
+            <section>
+              <SectionLabel>Published rates</SectionLabel>
+              <Card className="grid min-w-0 gap-6 p-6 sm:grid-cols-[1fr_200px]">
+                <div className="min-w-0">
+                  {primeHistory && primeHistory.length > 1 ? (
+                    <>
+                      <Sparkline data={primeHistory} color="var(--navy)" />
+                      <p className="mt-2 text-[11px] text-gray-400">
+                        Prime rate, weekly, {primeHistory.length >= 100 ? "last two years" : `last ${primeHistory.length} weeks`} —{" "}
+                        {primeHistory[0].toFixed(2)}% to {primeHistory[primeHistory.length - 1].toFixed(2)}%.
+                      </p>
+                    </>
+                  ) : (
+                    <p className="text-[13px] text-gray-400">Rate history is still loading.</p>
+                  )}
+                </div>
+                <div className="min-w-0 space-y-2 text-sm">
+                  {rates.prime && (
+                    <div className="flex items-center justify-between border-b border-line pb-1.5">
+                      <span className="font-semibold text-gray-600">Prime</span>
+                      <span className="tabular font-extrabold">{rates.prime.value.toFixed(2)}%</span>
+                    </div>
+                  )}
+                  {rates.posted.map((r) => (
+                    <div key={r.series_id} className="flex items-center justify-between border-b border-line pb-1.5 last:border-0">
+                      <span className="font-semibold text-gray-600">{r.term_years}-yr posted</span>
+                      <span className="tabular font-extrabold">{r.value.toFixed(2)}%</span>
+                    </div>
+                  ))}
+                  <p className="pt-1 text-[11px] leading-relaxed text-gray-400">
+                    Bank of Canada, {rateDate(rates.observedOn)}. Posted rates are the sticker price —
+                    a negotiated rate runs below them.
+                  </p>
+                </div>
+              </Card>
+            </section>
+          )}
 
           {/* RENEWAL / REFI SCENARIOS */}
           {primary && (
             <section id="scenarios" className="scroll-mt-20">
               <SectionLabel>Renewal scenarios</SectionLabel>
               <Card className="p-6">
-                <p className="font-bold">If you renewed or refinanced today…</p>
+                <p className="font-bold">If you renewed at each of these rates…</p>
+                <p className="mt-1 text-[13px] leading-relaxed text-gray-500">
+                  Not offers — a ladder around your own {primary.rate.toFixed(2)}%, so you can see where
+                  renewing starts being worth the paperwork.
+                </p>
                 <div className="mt-3 flex items-center gap-3">
                   <span className="text-sm text-gray-500">I plan to stay</span>
                   <input type="range" min={1} max={25} value={years} onChange={(e) => setYears(Number(e.target.value))} className="w-40 accent-[var(--teal)]" />
                   <span className="tabular rounded-lg bg-teal-soft px-2 py-1 text-sm font-extrabold text-teal-deep">{years} years</span>
                 </div>
                 <div className="mt-5 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-                  {REFI_PRODUCTS.map((p) => {
+                  {refiLadder.map((p) => {
                     const s = refiScenario(primary.balance, primary.rate, primary.amort_years, p, years);
                     const good = s.delta > 0;
+                    const same = Math.abs(s.delta) < 1;
                     return (
-                      <div key={p.label} className="rounded-xl border border-line p-4">
-                        <p className="text-sm font-bold">{p.label}</p>
-                        <p className={`tabular mt-1 text-2xl font-extrabold ${good ? "text-emerald-600" : "text-coral"}`}>
+                      <div key={p.label} className={`rounded-xl border p-4 ${same ? "border-teal bg-teal-soft" : "border-line"}`}>
+                        <p className="text-sm font-bold">{same ? "Your rate today" : p.label}</p>
+                        <p className={`tabular mt-1 text-2xl font-extrabold ${same ? "" : good ? "text-emerald-600" : "text-coral"}`}>
                           {cad(s.newPayment)}<span className="text-xs font-bold text-gray-400">/mo</span>
                         </p>
-                        <p className="text-xs text-gray-400">{p.rate.toFixed(2)}% · 25-yr amortization</p>
-                        <p className={`mt-2 text-xs font-bold ${good ? "text-emerald-600" : "text-coral"}`}>
-                          {good ? `Saves ~${cad(Math.abs(s.delta))} over ${years} yrs` : `Costs ~${cad(Math.abs(s.delta))} more over ${years} yrs`}
-                        </p>
+                        <p className="text-xs text-gray-400">{p.rate.toFixed(2)}% · {p.amortYears}-yr amortization</p>
+                        {!same && (
+                          <p className={`mt-2 text-xs font-bold ${good ? "text-emerald-600" : "text-coral"}`}>
+                            {good ? `Saves ~${cad(Math.abs(s.delta))} over ${years} yrs` : `Costs ~${cad(Math.abs(s.delta))} more over ${years} yrs`}
+                          </p>
+                        )}
                       </div>
                     );
                   })}
                 </div>
-                <p className="mt-4 text-center text-xs text-gray-400">
-                  Comparisons vs. keeping your current {primary.rate.toFixed(2)}% loan. Estimates only — real quotes come from a human.
+                <p className="mt-4 text-center text-xs leading-relaxed text-gray-400">
+                  Interest compared against keeping your current {primary.rate.toFixed(2)}% loan, over the
+                  years you plan to stay. Breaking a term early can carry a penalty that is not counted
+                  here — your broker prices that alongside the real quote.
                 </p>
               </Card>
             </section>
@@ -310,7 +368,7 @@ export default function SaveMoney() {
               {/* "Renew at a better rate": jump to the scenarios below — or start by adding the loan. */}
               {primary ? (
                 <a href="#scenarios" className="flex items-center justify-between p-4 text-gray-700 transition hover:bg-gray-50">
-                  <span>Renew at a better rate<span className="block text-[11px] font-normal text-gray-400">compare today&apos;s rates against yours</span></span>
+                  <span>Renew at a better rate<span className="block text-[11px] font-normal text-gray-400">see what each rate would cost you</span></span>
                   <span className="text-gray-300">›</span>
                 </a>
               ) : (

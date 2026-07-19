@@ -53,6 +53,44 @@ export function useMarketRates(): MarketRates | null {
   return rates;
 }
 
+/** Series ids, so callers ask for a rate by name rather than by magic string. */
+export const SERIES = {
+  prime: "V80691311",
+  posted1: "V80691333",
+  posted3: "V80691334",
+  posted5: "V80691335",
+} as const;
+
+/**
+ * Weekly observations for one series, oldest first — a real trend line.
+ * null while loading, [] if we have no history to draw.
+ */
+export function useRateHistory(seriesId: string, weeks = 104): number[] | null {
+  const [points, setPoints] = useState<number[] | null>(null);
+
+  useEffect(() => {
+    let alive = true;
+    (async () => {
+      let vals: number[] = [];
+      try {
+        const { data } = await sb()
+          .from("ho_rate_history")
+          .select("value,observed_on")
+          .eq("series_id", seriesId)
+          .order("observed_on", { ascending: false })
+          .limit(weeks);
+        vals = ((data as { value: number }[]) ?? []).map((r) => Number(r.value)).reverse();
+      } catch {
+        // A missing trend line is a display state, not an error.
+      }
+      if (alive) setPoints(vals);
+    })();
+    return () => { alive = false; };
+  }, [seriesId, weeks]);
+
+  return points;
+}
+
 /** "15 July 2026" — the Bank of Canada's observation date, not today's date. */
 export function rateDate(iso: string | null): string {
   if (!iso) return "";
