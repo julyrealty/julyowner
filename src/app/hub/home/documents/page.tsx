@@ -11,7 +11,8 @@ import { Umbrella, ShieldCheck, FolderOpen, FileText, UploadCloud, Trash2, Plus,
 const BUILT_IN = ["Insurance", "Warranty"];
 
 export default function DocumentsPage() {
-  const { docs, addDoc, removeDoc, docUrl, demo } = useHub();
+  const { docs, addDoc, removeDoc, docUrl, demo, hub } = useHub();
+  const isPureBuyer = hub?.journey === "buying";
   const [folder, setFolder] = useState<string | null>(null);
   const [newFolder, setNewFolder] = useState(false);
   const [drag, setDrag] = useState(false);
@@ -54,7 +55,11 @@ export default function DocumentsPage() {
         {!folder ? (
           <>
             <h1 className="text-2xl font-extrabold tracking-tight sm:text-3xl">Documents</h1>
-            <p className="mt-1 text-sm text-gray-500">Your home&apos;s digital safe. Only hub members can see what&apos;s inside.</p>
+            <p className="mt-1 text-sm text-gray-500">
+              {isPureBuyer
+                ? "Strata packages, disclosures, inspections — everything for your purchase in one private place."
+                : <>Your home&apos;s digital safe. Only hub members can see what&apos;s inside.</>}
+            </p>
 
             <div className="mt-6 grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">
               {folders.map(([name, count]) => {
