@@ -170,6 +170,36 @@ export function threeMonthInterest(balance: number, annualPct: number): number {
   return (balance * (annualPct / 100)) / 4;
 }
 
+/* ------------------------------------------------------------------ */
+/* Federal mortgage qualification rules.                               */
+/* Thresholds per CMHC (down payment, insurable limit, amortization).  */
+/* These are set by policy and do change — the UI names the authority  */
+/* and dates the figures rather than presenting them as permanent.     */
+/* ------------------------------------------------------------------ */
+
+/** Price at or above which default insurance is unavailable, forcing 20% down. */
+export const INSURABLE_CEILING = 1_500_000;
+
+/** Minimum legal down payment: 5% of the first $500K, 10% above, 20% at the ceiling. */
+export function minDownPayment(price: number): number {
+  if (price <= 0) return 0;
+  if (price >= INSURABLE_CEILING) return price * 0.2;
+  if (price <= 500_000) return price * 0.05;
+  return 25_000 + (price - 500_000) * 0.1;
+}
+
+/** Whether default insurance can be purchased at this price at all. */
+export const isInsurable = (price: number) => price < INSURABLE_CEILING;
+
+/**
+ * The rate a lender qualifies you at: the greater of your contract rate plus
+ * two points, or 5.25%. You pay the contract rate; you must *prove* you could
+ * carry this one.
+ */
+export function stressRate(contractPct: number): number {
+  return Math.max(contractPct + 2, 5.25);
+}
+
 export type NetProceedsInput = {
   price: number;
   mortgages: { balance: number; rate: number; loan_type?: string | null }[];
