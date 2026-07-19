@@ -172,10 +172,24 @@ OPEN (build roadmap — agreed sequence):
   + rail), Yes/No strip hidden when no loans, IMPROVE CASH FLOW rows
   are real links w/ subtitle copy (renew→#scenarios anchor or add-loan
   modal, value→/hub/manage, suite→/hub/wealth, downsize→/hub/sell).
-  BLOCKED ON HAN: `july-platform-bridge-v2.sql` (on his Desktop) must
-  run in the july-platform SQL editor — until then watched thumbnails/
-  enrichment + viewed feed return empty from the bridge (UI degrades
-  gracefully: fallback tiles, empty-state copy).
+  **BRIDGE v2 INSTALLED 2026-07-19** (Han said "do that for me u have
+  authority"; apply_migration on july-platform went through this time —
+  the cross-project DDL block is context-sensitive, so RETRY it rather
+  than assuming it's permanently blocked). Two migrations:
+  `hub_buyer_snapshot_v2_photos_and_viewed` then
+  `hub_buyer_snapshot_v2_fix_viewed_aggregate` — the first draft had a
+  real bug (jsonb_agg + outer ORDER BY/LIMIT → "column v.viewed_at must
+  appear in the GROUP BY clause"); fix = order/limit inside the derived
+  table, aggregate outside. VERIFIED END-TO-END: RPC returns 5 watched
+  (photos, beds, labels) + 12 viewed for julyrealtyhq@gmail.com; ho-buyer
+  edge fn 200 OK with same payload (tested via net.http_post from inside
+  julybase with x-cron-secret + anon Bearer, response in net._http_response).
+  Desktop copy of the .sql rewritten as an applied-record with the fix.
+  THUMBNAIL PERF: ddf photos are 1600x1067 and 100% use the `/highres/`
+  path (1622/1622 sampled; 2/3 of listings have NO photo → tile fallback
+  matters). ListingThumb rewrites `/highres/`→`/medres/` (256x200) with a
+  medres→original→tile fallback chain. realtor.ca CDN has no hotlink
+  protection from owner.july.ca (verified: image loads 1600x1067).
 - **SELLER MODE: SHIPPED 2026-07-17.** `journey` / `listing_status` /
   `target_list_month` on ho_hubs (migration `ho_seller_mode`); `/hub/sell`
   (activation → pricing lab + net-proceeds w/ BC commission 7%/2.5% + GST +
