@@ -152,6 +152,30 @@ verification (for JULY Answer later); rotate exposed VERCEL_TOKEN +
 SUPABASE_ACCESS_TOKEN (BuyerAiPro handoff §10.9).
 
 OPEN (build roadmap — agreed sequence):
+- **BUYER-FIT HUBS SHIPPED 2026-07-19 (wave 17, from Han's live-test
+  screenshots):** pure buyer hubs (journey='buying') are now buyer-shaped
+  end to end. hub/layout: BUYER_NAV (My Search /hub/buying, Documents
+  /hub/home/documents, Messages) w/ 3-col mobile grid, "JULY Buyer"
+  header brand, owner-only-path guard (manage/save/wealth/sell/home
+  root/inventory/timeline → bounce to /hub/buying); home-subnav shows
+  only Documents for pure buyers; dashboard redirect to Buying HQ now
+  journey-based (demo too). Buying HQ: watched cards get photo
+  thumbnails (ListingThumb w/ broken-image fallback tile) + beds/baths/
+  city line; NEW "Recently viewed" feed (buyer.viewed); pure buyers get
+  "What can I afford?" monthly-payment calculator (4.19%/25y, 20%-down
+  price, pre-approval lead CTA) INSTEAD of the $0-equity buying-power
+  card; "AI on your side" card → buyeraipro.com scan + documents CTA;
+  pause-plan link hidden for pure buyers. Store: BuyerWatched enriched
+  (photo/beds/baths/city/list_price), BuyerViewed type, buyer.viewed
+  wired through all load paths; **ho-buyer v2 deployed** (viewed
+  passthrough). Save Money owner fixes: add-mortgage empty states (main
+  + rail), Yes/No strip hidden when no loans, IMPROVE CASH FLOW rows
+  are real links w/ subtitle copy (renew→#scenarios anchor or add-loan
+  modal, value→/hub/manage, suite→/hub/wealth, downsize→/hub/sell).
+  BLOCKED ON HAN: `july-platform-bridge-v2.sql` (on his Desktop) must
+  run in the july-platform SQL editor — until then watched thumbnails/
+  enrichment + viewed feed return empty from the bridge (UI degrades
+  gracefully: fallback tiles, empty-state copy).
 - **SELLER MODE: SHIPPED 2026-07-17.** `journey` / `listing_status` /
   `target_list_month` on ho_hubs (migration `ho_seller_mode`); `/hub/sell`
   (activation → pricing lab + net-proceeds w/ BC commission 7%/2.5% + GST +
