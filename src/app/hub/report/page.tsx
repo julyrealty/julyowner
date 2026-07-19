@@ -219,14 +219,19 @@ export default function AnnualReport() {
                 label="Equity today"
                 value={cad(equity)}
                 tone="text-teal-deep"
-                note="Home value minus everything you owe — the part that's already yours."
+                note={mortgages.length === 0
+                  ? "Assumes nothing is owed — add your mortgage and this becomes exact."
+                  : "Home value minus everything you owe — the part that's already yours."}
               />
               <Tile
                 label="Mortgage balance"
                 value={cad(balance)}
+                // No loans on file is not the same as being mortgage-free.
                 note={balance > 0
                   ? `Left on ${mortgages.length > 1 ? `${mortgages.length} loans` : mortgages[0]?.lender || "your loan"} — every payment moves value to your side.`
-                  : "Mortgage-free — every dollar of value here is yours."}
+                  : mortgages.length === 0
+                    ? "No loan recorded yet — add one in Save Money to track your payoff."
+                    : "Mortgage-free — every dollar of value here is yours."}
               />
               <Tile
                 label="Tappable equity"
