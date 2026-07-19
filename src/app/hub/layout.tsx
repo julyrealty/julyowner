@@ -71,6 +71,7 @@ function Shell({ children }: { children: React.ReactNode }) {
     { href: "/hub/buying", label: "My Search", icon: Search },
     { href: "/hub/value", label: "Valuation", icon: LineChart },
     { href: "/hub/scan", label: "AI Review", icon: Sparkles },
+    { href: "/hub/mortgage", label: "Mortgage", icon: PiggyBank },
     { href: "/hub/guides", label: "Learn", icon: BookOpen },
     { href: "/hub/services", label: "Services", icon: Wrench },
     { href: "/hub/messages", label: "Messages", icon: MessageSquare },
@@ -186,12 +187,18 @@ function Shell({ children }: { children: React.ReactNode }) {
 
       {/* Mobile bottom nav */}
       <nav className="fixed inset-x-0 bottom-0 z-40 border-t border-line bg-white/95 backdrop-blur md:hidden" style={{ paddingBottom: "env(safe-area-inset-bottom)" }}>
-        <div className={nav.length === 6 ? "grid grid-cols-6" : nav.length === 3 ? "grid grid-cols-3" : "grid grid-cols-5"}>
+        {/* Static class names — Tailwind cannot generate `grid-cols-${n}` at build time. */}
+        <div className={
+          nav.length === 7 ? "grid grid-cols-7"
+            : nav.length === 6 ? "grid grid-cols-6"
+              : nav.length === 3 ? "grid grid-cols-3"
+                : "grid grid-cols-5"
+        }>
           {nav.map((n) => (
             <Link key={n.href} href={`${n.href}${q}`}
               className={`flex flex-col items-center gap-0.5 py-2.5 text-[10px] font-bold ${active(n.href) ? "text-teal" : "text-gray-400"}`}>
               <n.icon size={20} strokeWidth={active(n.href) ? 2.6 : 2} />
-              {({ "Manage Home": "Manage", "Save Money": "Save", "Build Wealth": "Wealth", "AI Review": "AI", "My Search": "Search" } as Record<string, string>)[n.label] ?? n.label}
+              {({ "Manage Home": "Manage", "Save Money": "Save", "Build Wealth": "Wealth", "AI Review": "AI", "My Search": "Search", "Valuation": "Value", "Mortgage": "Money", "Messages": "Chat", "Services": "Pros" } as Record<string, string>)[n.label] ?? n.label}
             </Link>
           ))}
         </div>
