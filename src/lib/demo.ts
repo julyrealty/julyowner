@@ -106,7 +106,7 @@ export const IMPROVEMENTS: Improvement[] = [
 
 /* Guides live in their own module (they carry full bodies); re-exported here
    so every existing `from "@/lib/demo"` import keeps working. */
-export { ARTICLES, guideBySlug } from "./guides";
+export { ARTICLES, guideBySlug, guidesFor } from "./guides";
 export type { Article, GuideBlock } from "./guides";
 
 /* ------------------------------------------------------------------ */

@@ -7,6 +7,8 @@
 export type GuideBlock = { h: string; p?: string[]; ul?: string[] };
 export type Article = {
   slug: string; title: string; excerpt: string; tag: string; minutes: number;
+  /** Who this is written for. Buyer hubs surface "buyer" first; owners get the rest. */
+  audience?: "buyer" | "owner";
   body: GuideBlock[];
 };
 
@@ -452,8 +454,268 @@ export const ARTICLES: Article[] = [
       },
     ],
   },
+  /* ---------------------------------------------------------------- */
+  /* Buyer guides. Same durability rule, and it matters more here: BC   */
+  /* thresholds and federal limits move. Explain the MECHANISM, name    */
+  /* the programme, and send the reader to the authority for numbers.   */
+  /* ---------------------------------------------------------------- */
+  {
+    slug: "first-home-bc",
+    title: "Buying Your First Home in BC: The Whole Sequence",
+    tag: "First-time buyers",
+    minutes: 8,
+    audience: "buyer",
+    excerpt: "What happens, in what order, from 'maybe we should look' to the keys in your hand.",
+    body: [
+      {
+        h: "Get the financing conversation out of the way first",
+        p: [
+          "Almost everyone starts by looking at listings. It is more fun and it is the wrong order. Until a broker or lender has looked at your income, debts and down payment, you are shopping against a number you invented.",
+          "A pre-approval tells you the ceiling, roughly what the payment looks like, and — importantly — what would break it. It is not a guarantee; the lender still has to approve the specific property.",
+        ],
+      },
+      {
+        h: "Understand what you can put down",
+        p: [
+          "Canada sets a minimum down payment that steps up with price: the lowest percentage applies to the least expensive homes, a higher share applies above a threshold, and above a second threshold you must put twenty percent down. Those thresholds have moved in recent years — confirm the current ones with your broker rather than a blog.",
+          "Below twenty percent you also pay mortgage default insurance, which is added to the loan. It is not optional and it is not a scam; it is what lets you buy with less down.",
+        ],
+      },
+      {
+        h: "Know about the stress test before it surprises you",
+        p: [
+          "Lenders qualify you at a rate higher than the one you will actually pay. That is deliberate: it checks you could still carry the mortgage if rates rise at renewal. It is the single most common reason a pre-approval comes in lower than people expect.",
+        ],
+      },
+      {
+        h: "Then, and only then, start looking",
+        ul: [
+          "Save searches and set alerts so new listings come to you, rather than refreshing all evening.",
+          "See enough homes to calibrate. The third viewing teaches you more than the first two combined.",
+          "Watch what sells, not just what lists — asking prices tell you what sellers hope for.",
+        ],
+      },
+      {
+        h: "Writing the offer",
+        p: [
+          "In BC an offer is usually made subject to conditions — commonly financing, inspection, and for a strata, review of the documents. Those subjects are your protection: they are the window in which you verify what you are buying and can walk away without losing your deposit.",
+          "Subject removal has a deadline. Once you remove subjects, the deal is firm and your deposit is genuinely at risk. Never remove subjects on documents you have not actually read.",
+        ],
+      },
+      {
+        h: "Between firm and possession",
+        ul: [
+          "Your lawyer or notary does the title search, prepares documents, and handles the money.",
+          "Your lender needs time — get them everything the day they ask.",
+          "Arrange home insurance; your lender will require proof before closing.",
+          "Budget for closing costs, which are separate from your down payment — see the closing-costs guide.",
+        ],
+      },
+      {
+        h: "The part nobody tells first-time buyers",
+        p: [
+          "The emotional swing is normal. Almost everyone has a moment of certainty that they are overpaying, usually days after subject removal. That feeling is not information. Your advisor has watched dozens of people through it, and it is a reasonable thing to phone them about.",
+        ],
+      },
+    ],
+  },
+  {
+    slug: "down-payment",
+    title: "What You Actually Need for a Down Payment",
+    tag: "Financing",
+    minutes: 6,
+    audience: "buyer",
+    excerpt: "Where the money can come from, what counts, and what lenders will ask you to prove.",
+    body: [
+      {
+        h: "The minimum is a floor, not a target",
+        p: [
+          "Canada's minimum down payment rises in steps with the purchase price, and above an upper threshold you must put twenty percent down. Confirm today's thresholds with your broker — they have changed more than once recently.",
+          "Putting down more lowers both the loan and the default insurance premium. Putting down less gets you in sooner. Neither is automatically right; it depends on what your money would otherwise be doing.",
+        ],
+      },
+      {
+        h: "Where lenders let it come from",
+        ul: [
+          "Your own savings — the simplest, and the easiest to prove.",
+          "A gift from an immediate family member, with a signed letter confirming it is a gift and not a loan.",
+          "An RRSP withdrawal under the federal Home Buyers' Plan, which you repay to your RRSP over time.",
+          "A First Home Savings Account, the registered account designed specifically for this — contributions are deductible and qualifying withdrawals are not taxed.",
+          "Proceeds from selling something you own, with the paper trail to match.",
+        ],
+        p: ["Limits and eligibility for the federal programmes change; check the current rules on the Government of Canada site or with your broker before you count on a number."],
+      },
+      {
+        h: "Prepare to prove where it came from",
+        p: [
+          "Expect to show ninety days of history for the funds. This is anti-money-laundering law, not suspicion of you. A large unexplained deposit the week before closing causes real delays.",
+          "If family is gifting, get the letter early. It is the single most commonly forgotten document.",
+        ],
+      },
+      {
+        h: "Do not spend it all",
+        p: [
+          "Your down payment is not your whole budget. Closing costs land on top, and they are usually thousands. Arriving at possession day with nothing left is a stressful way to start.",
+        ],
+      },
+    ],
+  },
+  {
+    slug: "closing-costs",
+    title: "Closing Costs: The Bill Nobody Warns You About",
+    tag: "Financing",
+    minutes: 5,
+    audience: "buyer",
+    excerpt: "What lands on top of your down payment, roughly when, and which ones you can avoid.",
+    body: [
+      {
+        h: "Property transfer tax",
+        p: [
+          "BC charges a transfer tax when a property changes hands, calculated in tiers against the purchase price. It is usually the largest closing cost.",
+          "There are exemptions — notably a First Time Home Buyers' Programme and an exemption for newly built homes — each with its own price threshold and conditions. The thresholds change with provincial budgets, so check the current rules on the BC government's property transfer tax pages, or ask your lawyer or notary.",
+        ],
+      },
+      {
+        h: "GST — only on new",
+        p: [
+          "Resale homes generally do not attract GST. Newly built ones do, and there is a partial rebate that phases out as price rises. If you are buying new, confirm whether the quoted price includes GST — it materially changes the deal.",
+        ],
+      },
+      {
+        h: "The rest of the list",
+        ul: [
+          "Legal or notary fees, plus disbursements like the title search and registration.",
+          "A home inspection, paid at the time, usually during your subject period.",
+          "An appraisal, if your lender orders one.",
+          "Title insurance, commonly required.",
+          "Adjustments — you reimburse the seller for property tax or strata fees they prepaid past your possession date.",
+          "Moving costs, and setting up utilities.",
+        ],
+      },
+      {
+        h: "Plan for a percentage, then get real numbers",
+        p: [
+          "Many buyers budget a small percentage of the purchase price for closing costs as a placeholder. That is fine for early planning, but once you have an actual property your lawyer or notary can give you a real statement of adjustments. Ask for it before you need it.",
+        ],
+      },
+      {
+        h: "What buyers usually do not pay",
+        p: [
+          "In a typical BC resale transaction the seller pays the real estate commission out of their proceeds. If anyone tells you otherwise about a specific deal, ask them to show you where.",
+        ],
+      },
+    ],
+  },
+  {
+    slug: "mortgage-basics",
+    title: "Mortgages Explained: Rate, Term, Amortization",
+    tag: "Financing",
+    minutes: 7,
+    audience: "buyer",
+    excerpt: "The three numbers people mix up, and the choices that actually change what you pay.",
+    body: [
+      {
+        h: "Three different things",
+        ul: [
+          "The rate is the cost of borrowing, expressed per year.",
+          "The term is how long that specific contract lasts — commonly a few years — after which you renew at whatever rates then exist.",
+          "The amortization is how long the whole loan takes to pay off, commonly twenty-five years. You will go through several terms within one amortization.",
+        ],
+        p: ["People say \"my mortgage is five years\" when they mean the term. The difference matters at renewal, which is the moment your payment can change."],
+      },
+      {
+        h: "Fixed or variable",
+        p: [
+          "Fixed buys certainty: your rate and payment hold for the term. Variable moves with the lender's prime rate, so the cost can fall or rise during the term.",
+          "The honest framing is not which is cheaper — nobody knows — but how much fluctuation you can live with. If a rate rise would genuinely hurt, that is an argument for fixed regardless of forecasts.",
+        ],
+      },
+      {
+        h: "The features that matter more than a few basis points",
+        ul: [
+          "Prepayment privileges — how much extra you can pay each year without penalty.",
+          "The penalty formula for breaking early. Fixed mortgages can use an interest-rate-differential calculation that is dramatically more expensive than three months' interest.",
+          "Portability, if there is any chance you move before the term ends.",
+          "Whether it is a collateral charge, which can make switching lenders at renewal more awkward.",
+        ],
+      },
+      {
+        h: "Why extra payments do so much",
+        p: [
+          "Early in an amortization, most of each payment is interest. Anything extra goes entirely against principal, so it removes not just that amount but all the future interest it would have carried. Small, regular extra payments shorten an amortization by years.",
+        ],
+      },
+      {
+        h: "Renewal is a decision, not a formality",
+        p: [
+          "Your lender will send an offer months ahead. It is rarely their best rate, because most people sign it. Shopping the renewal — or having a broker do it — is one of the highest-paid hours in personal finance.",
+        ],
+      },
+    ],
+  },
+  {
+    slug: "buyer-programs",
+    title: "Programmes and Rebates Worth Knowing About",
+    tag: "First-time buyers",
+    minutes: 6,
+    audience: "buyer",
+    excerpt: "The federal and BC support that exists — what each one does, and where to check the current rules.",
+    body: [
+      {
+        h: "Read this first",
+        p: [
+          "Every programme below is real, but the eligibility rules, price thresholds and dollar limits are set by government and change with budgets. This explains what each one is for. For the number that applies to you today, use the official source named in each entry, or ask your broker, lawyer or accountant.",
+        ],
+      },
+      {
+        h: "First Home Savings Account (federal)",
+        p: [
+          "A registered account built specifically for a first home. Contributions are tax-deductible like an RRSP, and qualifying withdrawals to buy a home are tax-free like a TFSA. There are annual and lifetime contribution limits. Details: Government of Canada, First Home Savings Account.",
+        ],
+      },
+      {
+        h: "Home Buyers' Plan (federal)",
+        p: [
+          "Lets you withdraw from your RRSP toward a first home and repay it over a set number of years. If you miss a repayment year, that portion becomes taxable income. Details: Canada Revenue Agency, Home Buyers' Plan.",
+        ],
+      },
+      {
+        h: "First-Time Home Buyers' Tax Credit (federal)",
+        p: [
+          "A non-refundable credit claimed on your tax return the year you buy. Modest, but it costs nothing but remembering to claim it — tell whoever prepares your return that you bought.",
+        ],
+      },
+      {
+        h: "BC Property Transfer Tax exemptions",
+        p: [
+          "BC runs a First Time Home Buyers' Programme that reduces or eliminates transfer tax below a price threshold, and a separate Newly Built Home Exemption. Both have conditions about occupancy and residency. This is often the largest single saving available to a first-time buyer, and it is claimed through your lawyer or notary at closing — so raise it with them early. Details: BC government property transfer tax exemptions.",
+        ],
+      },
+      {
+        h: "GST New Housing Rebate (federal)",
+        p: [
+          "Applies to newly built or substantially renovated homes, partially rebating the GST, and phasing out as price rises. Builders often credit it directly in the purchase price — check which way your contract is written.",
+        ],
+      },
+      {
+        h: "How to actually use this list",
+        p: [
+          "Bring it up at two moments: with your broker when you are working out the down payment, and with your lawyer or notary once you have an accepted offer. Those are the two people positioned to apply them. Leaving it later usually means leaving money behind.",
+        ],
+      },
+    ],
+  },
 ];
 
 export function guideBySlug(slug: string): Article | undefined {
   return ARTICLES.find((a) => a.slug === slug);
+}
+
+/** Guides for a hub, most relevant first. Buyer hubs lead with buyer guides. */
+export function guidesFor(journey?: string): Article[] {
+  const buyer = journey === "buying";
+  return [...ARTICLES].sort((a, b) => {
+    const rank = (x: Article) => (buyer ? (x.audience === "buyer" ? 0 : 1) : (x.audience === "buyer" ? 1 : 0));
+    return rank(a) - rank(b);
+  });
 }

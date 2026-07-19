@@ -4,7 +4,7 @@ import Link from "next/link";
 import { usePathname, useSearchParams } from "next/navigation";
 import {
   Home, LayoutDashboard, Wrench, PiggyBank, TrendingUp, House,
-  LogOut, RotateCcw, Sparkles, Tag, Search, MessageSquare, LineChart,
+  LogOut, RotateCcw, Sparkles, Tag, Search, MessageSquare, LineChart, BookOpen,
 } from "lucide-react";
 import { HubProvider, useHub, resetDemo } from "@/lib/store";
 import { Spinner, Modal } from "@/components/ui";
@@ -71,6 +71,7 @@ function Shell({ children }: { children: React.ReactNode }) {
     { href: "/hub/buying", label: "My Search", icon: Search },
     { href: "/hub/value", label: "Valuation", icon: LineChart },
     { href: "/hub/scan", label: "AI Review", icon: Sparkles },
+    { href: "/hub/guides", label: "Learn", icon: BookOpen },
     { href: "/hub/services", label: "Services", icon: Wrench },
     { href: "/hub/messages", label: "Messages", icon: MessageSquare },
   ];

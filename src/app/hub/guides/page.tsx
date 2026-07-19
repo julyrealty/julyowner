@@ -2,19 +2,24 @@
 import { useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { ChevronLeft, Clock, ArrowRight } from "lucide-react";
-import { ARTICLES, guideBySlug } from "@/lib/demo";
+import { guideBySlug, guidesFor } from "@/lib/demo";
+import { useHub } from "@/lib/store";
 import { Card, SectionLabel } from "@/components/ui";
 
 export default function GuidesPage() {
   const params = useSearchParams();
+  const { hub } = useHub();
   const q = params.get("demo") === "1" ? "?demo=1" : "";
   const slug = params.get("a");
   const guide = slug ? guideBySlug(slug) : undefined;
+  // Buyers see buying guides first; owners see ownership guides first.
+  const ordered = guidesFor(hub?.journey);
+  const isBuyer = hub?.journey === "buying";
   const href = (s: string) => `/hub/guides${q ? `${q}&` : "?"}a=${s}`;
 
   /* ------------------------------ one guide ------------------------------ */
   if (guide) {
-    const others = ARTICLES.filter((a) => a.slug !== guide.slug).slice(0, 3);
+    const others = ordered.filter((a) => a.slug !== guide.slug).slice(0, 3);
     return (
       <div className="container-x py-8">
         <Link href={`/hub/guides${q}`} className="link inline-flex items-center gap-1 text-sm">
@@ -83,10 +88,10 @@ export default function GuidesPage() {
     <div className="container-x py-8">
       <h1 className="text-2xl font-extrabold tracking-tight sm:text-3xl">Guides</h1>
       <p className="mt-1 text-sm text-gray-500">
-        Plain-English answers to the questions that come with owning a home — written for this market.
+        {isBuyer ? "Everything worth knowing before you buy — financing, closing costs, and the programmes people miss." : "Plain-English answers to the questions that come with owning a home — written for this market."}
       </p>
       <div className="mt-6 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-        {ARTICLES.map((a) => (
+        {ordered.map((a) => (
           <Link key={a.slug} href={href(a.slug)} className="card flex flex-col p-5 transition hover:border-teal">
             <p className="text-[11px] font-bold uppercase tracking-wide text-teal">{a.tag}</p>
             <p className="mt-1.5 text-[15px] font-bold leading-snug">{a.title}</p>
