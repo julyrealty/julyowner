@@ -497,7 +497,7 @@ export function HubProvider({ children, demo }: { children: React.ReactNode; dem
       if (state.demo) {
         setState((s) => ({
           ...s,
-          buyer: { loaded: true, linked: true, watched: [...DEMO_BUYER.watched], searches: [...DEMO_BUYER.searches], tours: [...DEMO_BUYER.tours], viewed: [] },
+          buyer: { loaded: true, linked: true, watched: [...DEMO_BUYER.watched], searches: [...DEMO_BUYER.searches], tours: [...DEMO_BUYER.tours], viewed: [...DEMO_BUYER.viewed] },
         }));
         return;
       }

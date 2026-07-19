@@ -282,6 +282,12 @@ export const DEMO_BUYER = {
   tours: [
     { address: "302-2159 W 6th Ave", city: "Vancouver", list_price: 1048000, status: "requested", preferred_times: "Sat afternoon", created_at: "2026-07-15T22:20:00Z" },
   ],
+  viewed: [
+    { ref: "jsw-4901", viewed_at: "2026-07-18T23:45:00Z", label: "212-2665 W Broadway · 2 bed condo", photo: null, beds: 2, baths: 2, city: "Vancouver", list_price: 998000 },
+    { ref: "jsw-4821", viewed_at: "2026-07-18T04:10:00Z", label: "302-2159 W 6th Ave · 2 bed condo", photo: null, beds: 2, baths: 2, city: "Vancouver", list_price: 1048000 },
+    { ref: "jsw-4877", viewed_at: "2026-07-16T20:30:00Z", label: "7-238 E 10th Ave · 2 bed rowhome", photo: null, beds: 2, baths: 1, city: "Vancouver", list_price: 1089000 },
+    { ref: "jsw-4750", viewed_at: "2026-07-14T18:05:00Z", label: "1104-1480 Howe St · 1 bed + den", photo: null, beds: 1, baths: 1, city: "Vancouver", list_price: 829900 },
+  ],
 };
 
 /** Selling Roadmap templates — merged with items generated from the home's own inventory. */
