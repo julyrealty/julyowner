@@ -51,6 +51,9 @@ function ClaimInner() {
         email: form.email.trim(),
         password: form.password,
         options: {
+          // Confirmation links return to the brand domain the user signed up on
+          // (each persona domain is in the Supabase redirect allowlist).
+          emailRedirectTo: `${window.location.origin}/auth/callback`,
           data: {
             role: isPro ? "professional" : "homeowner",
             first_name: form.first.trim(),
