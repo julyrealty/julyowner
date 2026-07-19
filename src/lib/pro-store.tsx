@@ -4,7 +4,16 @@
 
 import React, { createContext, useContext, useEffect, useMemo, useState } from "react";
 import { sb } from "./supabase";
-import { DEMO_CONTACTS, DEMO_ACTIVITIES, DEMO_HUB, DEMO_PRO, DEMO_ADVISOR, PROVIDERS, uid } from "./demo";
+import { DEMO_CONTACTS, DEMO_ACTIVITIES, DEMO_HUB, DEMO_PRO, DEMO_ADVISOR, PROVIDERS, uid, type Provider } from "./demo";
+
+/** ho_providers row → the Provider shape the UI renders. */
+export function rowToProvider(r: Record<string, unknown>): Provider {
+  return {
+    id: String(r.id), name: String(r.name ?? ""), category: String(r.category ?? ""),
+    phone: String(r.phone ?? ""), city: String(r.city ?? ""),
+    blurb: String(r.description ?? ""), verified: r.status === "verified",
+  };
+}
 
 export type ProContact = {
   id: string; first_name: string; last_name: string; email: string; phone?: string | null;
@@ -36,6 +45,7 @@ export type ProState = {
   advisors: ProAdvisor[];
   hubs: ProHubRow[];
   recommended: string[]; // provider ids
+  providers: Provider[]; // real directory in live mode; seeded sample in demo
   activities: ProActivity[];
   shareLink: string;
   products: Partial<Record<ProductKey, string>>; // product -> tier; absent = locked
@@ -44,6 +54,7 @@ export type ProState = {
   addAdvisor: (a: Omit<ProAdvisor, "id" | "is_default"> & { is_default?: boolean }) => Promise<void>;
   setDefaultAdvisor: (id: string) => Promise<void>;
   toggleRecommend: (providerId: string) => Promise<void>;
+  addProvider: (p: { name: string; category: string; phone: string; email: string }) => Promise<void>;
   updateProfile: (p: Record<string, string | null>) => Promise<void>;
 };
 
@@ -51,9 +62,9 @@ const Ctx = createContext<ProState | null>(null);
 const LS = "julyowner-pro-demo-v1";
 
 export function ProProvider({ children, demo }: { children: React.ReactNode; demo: boolean }) {
-  const [s, setS] = useState<Omit<ProState, "addContact" | "inviteContact" | "addAdvisor" | "setDefaultAdvisor" | "toggleRecommend" | "updateProfile">>({
+  const [s, setS] = useState<Omit<ProState, "addContact" | "inviteContact" | "addAdvisor" | "setDefaultAdvisor" | "toggleRecommend" | "addProvider" | "updateProfile">>({
     loading: true, demo, session: false, profile: null,
-    contacts: [], advisors: [], hubs: [], recommended: [], activities: [], shareLink: "",
+    contacts: [], advisors: [], hubs: [], recommended: [], providers: [], activities: [], shareLink: "",
     products: {},
   });
 
@@ -81,6 +92,7 @@ export function ProProvider({ children, demo }: { children: React.ReactNode; dem
             },
           ],
           recommended: saved.recommended ?? PROVIDERS.filter((p) => p.recommended).map((p) => p.id),
+          providers: PROVIDERS,
           activities: DEMO_ACTIVITIES as unknown as ProActivity[],
           shareLink: `${window.location.origin}/claim`,
           products: { buyer: "included", owner: "included", seller: "included", investor: "included" },
@@ -91,12 +103,13 @@ export function ProProvider({ children, demo }: { children: React.ReactNode; dem
       const { data: { session } } = await supa.auth.getSession();
       if (!session) { if (alive) setS((x) => ({ ...x, loading: false })); return; }
       const uidv = session.user.id;
-      const [{ data: profile }, { data: contacts }, { data: advisors }, { data: hubs }, { data: recs }, { data: acts }, { data: leads }] = await Promise.all([
+      const [{ data: profile }, { data: contacts }, { data: advisors }, { data: hubs }, { data: recs }, { data: provs }, { data: acts }, { data: leads }] = await Promise.all([
         supa.from("ho_profiles").select("*").eq("id", uidv).maybeSingle(),
         supa.from("ho_contacts").select("*").eq("pro_id", uidv).order("created_at", { ascending: false }),
         supa.from("ho_advisors").select("*").eq("pro_id", uidv),
         supa.from("ho_hubs").select("id,full_address,address1,created_at,journey,selling_started_at,listing_status,buying_started_at,is_rental,monthly_rent,lease_end,ho_hub_members(first_name,last_name)").eq("pro_id", uidv),
         supa.from("ho_recommendations").select("provider_id").eq("pro_id", uidv),
+        supa.from("ho_providers").select("*").order("name"),
         supa.from("ho_activities").select("id,action,detail,member_email,created_at,ho_hubs!inner(id,address1,pro_id)").eq("ho_hubs.pro_id", uidv).order("created_at", { ascending: false }).limit(25),
         supa.from("ho_leads").select("*").eq("pro_id", uidv).order("created_at", { ascending: false }).limit(10),
       ]);
@@ -153,6 +166,7 @@ export function ProProvider({ children, demo }: { children: React.ReactNode; dem
           };
         }),
         recommended: ((recs as { provider_id: string }[]) || []).map((r) => r.provider_id),
+        providers: ((provs as Record<string, unknown>[]) || []).map(rowToProvider),
         activities: [
           ...(((leads as unknown[]) || []).map((l) => {
             const ll = l as Record<string, unknown>;
@@ -230,6 +244,20 @@ export function ProProvider({ children, demo }: { children: React.ReactNode; dem
         if (on) await sb().from("ho_recommendations").delete().eq("pro_id", user?.id).eq("provider_id", pid);
         else await sb().from("ho_recommendations").insert({ pro_id: user?.id, provider_id: pid });
       }
+    },
+    async addProvider(p) {
+      if (s.demo) {
+        // Demo stays local — a sample directory entry, pending "verification".
+        const row: Provider = { id: uid(), name: p.name, category: p.category, phone: p.phone, city: "", blurb: "", verified: false };
+        persist({ providers: [...s.providers, row] });
+        return;
+      }
+      const user = (await sb().auth.getUser()).data.user;
+      const { data, error } = await sb().from("ho_providers")
+        .insert({ submitted_by: user?.id, name: p.name, category: p.category, phone: p.phone, email: p.email })
+        .select("*").maybeSingle();
+      if (error || !data) return;
+      setS((x) => ({ ...x, providers: [...x.providers, rowToProvider(data as Record<string, unknown>)] }));
     },
     async updateProfile(p) {
       persist({ profile: s.profile ? ({ ...s.profile, ...p } as typeof s.profile) : s.profile });

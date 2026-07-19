@@ -6,7 +6,7 @@ import React, { createContext, useCallback, useContext, useEffect, useMemo, useS
 import { sb } from "./supabase";
 import {
   DEMO_HUB, DEMO_MORTGAGE, DEMO_PRO, DEMO_ADVISOR, DEMO_WHATS_NEXT, SELLER_TASKS, DEMO_BUYER, DEMO_MESSAGES,
-  findCatalogItem, areaOf, uid,
+  PROVIDERS, findCatalogItem, areaOf, uid, type Provider,
 } from "./demo";
 
 export type Mortgage = {
@@ -93,6 +93,9 @@ type HubState = {
   messages: Message[];
   rentalEntries: RentalEntry[];
   myHubs: { id: string; label: string }[];
+  /** Service directory. Live = real ho_providers rows (empty until the pro adds any);
+      demo = the seeded sample list. Never show sample pros to a real client. */
+  providers: Provider[];
 };
 
 type HubActions = {
@@ -181,7 +184,7 @@ export function HubProvider({ children, demo }: { children: React.ReactNode; dem
     loading: true, demo, session: false, profile: null, hub: null,
     mortgages: [], inventory: [], tasks: [], docs: [], pro: null, advisor: null,
     buyer: { loaded: false, linked: false, watched: [], searches: [], tours: [], viewed: [] },
-    messages: [], rentalEntries: [], myHubs: [],
+    messages: [], rentalEntries: [], myHubs: [], providers: [],
   });
 
   /* ---------- load ---------- */
@@ -199,6 +202,7 @@ export function HubProvider({ children, demo }: { children: React.ReactNode; dem
           profile: { id: "demo-user", role: "homeowner", first_name: DEMO_HUB.owner_first, last_name: DEMO_HUB.owner_last, email: DEMO_HUB.owner_email },
           pro: DEMO_PRO, advisor: DEMO_ADVISOR as unknown as Advisor,
           myHubs: [{ id: DEMO_HUB.id, label: DEMO_HUB.address1 }],
+          providers: PROVIDERS,
           ...data,
         }));
         return;
@@ -225,6 +229,8 @@ export function HubProvider({ children, demo }: { children: React.ReactNode; dem
       try { chosen = localStorage.getItem("julyowner-active-hub"); } catch {}
       const hubId = (chosen && hubIds.includes(chosen) ? chosen : hubIds[0]) ?? undefined;
       let hub = null, mortgages: Mortgage[] = [], inventory: InventoryItem[] = [], tasks: Task[] = [], docs: Doc[] = [], pro = null, advisor = null, messages: Message[] = [], rentalEntries: RentalEntry[] = [];
+      let providers: Provider[] = [];
+      let recommendedIds = new Set<string>();
       if (hubId) {
         const [h, m, inv, tk, dc, mg, re] = await Promise.all([
           supa.from("ho_hubs").select("*").eq("id", hubId).maybeSingle(),
@@ -247,7 +253,17 @@ export function HubProvider({ children, demo }: { children: React.ReactNode; dem
           pro = p;
           const { data: adv } = await supa.from("ho_advisors").select("*").eq("pro_id", hub.pro_id).eq("is_default", true).maybeSingle();
           advisor = adv;
+          // The sponsoring pro's picks sort to the top of Home Services.
+          const { data: recs } = await supa.from("ho_recommendations").select("provider_id").eq("pro_id", hub.pro_id);
+          recommendedIds = new Set(((recs ?? []) as { provider_id: string }[]).map((r) => r.provider_id));
         }
+        const { data: provs } = await supa.from("ho_providers").select("*").order("name");
+        providers = ((provs ?? []) as Record<string, unknown>[]).map((r) => ({
+          id: String(r.id), name: String(r.name ?? ""), category: String(r.category ?? ""),
+          phone: String(r.phone ?? ""), city: String(r.city ?? ""),
+          blurb: String(r.description ?? ""), verified: r.status === "verified",
+          recommended: recommendedIds.has(String(r.id)),
+        }));
       }
       if (!alive) return;
       setState({
@@ -256,6 +272,7 @@ export function HubProvider({ children, demo }: { children: React.ReactNode; dem
         myHubs: myHubs.length > 1 ? myHubs : (hub ? [{ id: (hub as Hub).id, label: (hub as Hub).address1 }] : []),
         pro: pro as Profile | null, advisor: advisor as Advisor | null,
         buyer: { loaded: false, linked: false, watched: [], searches: [], tours: [], viewed: [] },
+        providers,
       });
     })();
     return () => { alive = false; };

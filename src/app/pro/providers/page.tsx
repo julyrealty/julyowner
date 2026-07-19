@@ -1,23 +1,23 @@
 "use client";
 import { useMemo, useState } from "react";
 import { usePro } from "@/lib/pro-store";
-import { PROVIDERS, PROVIDER_CATEGORIES } from "@/lib/demo";
+import { PROVIDER_CATEGORIES } from "@/lib/demo";
 import { Card, Modal, Field, Pill } from "@/components/ui";
 import { Search, ThumbsUp, Plus, ShieldCheck } from "lucide-react";
 
 export default function ProProviders() {
-  const { recommended, toggleRecommend } = usePro();
+  const { recommended, toggleRecommend, providers, addProvider } = usePro();
   const [qtext, setQtext] = useState("");
   const [cat, setCat] = useState<string | null>(null);
   const [addOpen, setAddOpen] = useState(false);
   const [requested, setRequested] = useState<string[]>([]);
 
   const list = useMemo(() => {
-    let l = PROVIDERS;
+    let l = providers;
     if (cat) l = l.filter((p) => p.category === cat);
     if (qtext) l = l.filter((p) => (p.name + p.category).toLowerCase().includes(qtext.toLowerCase()));
     return [...l].sort((a, b) => Number(recommended.includes(b.id)) - Number(recommended.includes(a.id)));
-  }, [cat, qtext, recommended]);
+  }, [providers, cat, qtext, recommended]);
 
   return (
     <div className="px-4 py-6 sm:px-6 lg:px-8">
@@ -43,6 +43,17 @@ export default function ProProviders() {
       </div>
 
       <div className="mt-4 space-y-2">
+        {providers.length === 0 && (
+          <Card className="p-6 text-center">
+            <p className="text-sm font-bold">Your directory is empty</p>
+            <p className="mx-auto mt-1 max-w-md text-[13px] leading-relaxed text-gray-500">
+              Add the trades you actually use — the plumber who answers, the electrician who shows up.
+              Whoever you recommend appears in every client&apos;s hub under Home Services, with your
+              thumbs-up on it. Until then your clients see an empty list, not strangers.
+            </p>
+            <button className="btn btn-primary btn-md mt-4" onClick={() => setAddOpen(true)}><Plus size={15} /> Add your first provider</button>
+          </Card>
+        )}
         {list.map((p) => {
           const on = recommended.includes(p.id);
           return (
@@ -50,7 +61,9 @@ export default function ProProviders() {
               <div className="min-w-0 flex-1">
                 <div className="flex flex-wrap items-center gap-2">
                   <p className="font-bold">{p.name}</p>
-                  <Pill tone="teal"><ShieldCheck size={11} /> Verified</Pill>
+                  {p.verified
+                    ? <Pill tone="teal"><ShieldCheck size={11} /> Verified</Pill>
+                    : <Pill tone="gold">Pending verification</Pill>}
                   {on && <Pill tone="green"><ThumbsUp size={11} /> Recommended by you</Pill>}
                 </div>
                 <p className="mt-0.5 text-xs font-semibold text-gray-400">{p.category} · {p.city} · {p.phone}</p>
@@ -71,14 +84,19 @@ export default function ProProviders() {
       )}
 
       <Modal open={addOpen} onClose={() => setAddOpen(false)} title="Add a service provider">
-        <AddProviderForm onAdd={(name) => { setRequested((r) => [...r, name]); setAddOpen(false); }} />
+        <AddProviderForm onAdd={async (p) => {
+          await addProvider(p);
+          setRequested((r) => [...r, p.name]);
+          setAddOpen(false);
+        }} />
       </Modal>
     </div>
   );
 }
 
-function AddProviderForm({ onAdd }: { onAdd: (name: string) => void }) {
+function AddProviderForm({ onAdd }: { onAdd: (p: { name: string; category: string; phone: string; email: string }) => void | Promise<void> }) {
   const [f, setF] = useState({ name: "", category: PROVIDER_CATEGORIES[0], phone: "", email: "" });
+  const [saving, setSaving] = useState(false);
   return (
     <div className="space-y-4">
       <p className="text-sm text-gray-600">Know someone great who isn&apos;t listed? Submit them — once verified, you can recommend them to every client.</p>
@@ -92,7 +110,13 @@ function AddProviderForm({ onAdd }: { onAdd: (name: string) => void }) {
         <Field label="Phone"><input className="input" value={f.phone} onChange={(e) => setF({ ...f, phone: e.target.value })} /></Field>
         <Field label="Email"><input className="input" value={f.email} onChange={(e) => setF({ ...f, email: e.target.value })} /></Field>
       </div>
-      <button className="btn btn-primary btn-lg w-full" disabled={!f.name.trim()} onClick={() => onAdd(f.name.trim())}>Submit for verification</button>
+      <button className="btn btn-primary btn-lg w-full" disabled={!f.name.trim() || saving}
+        onClick={async () => {
+          setSaving(true);
+          try { await onAdd({ ...f, name: f.name.trim() }); } finally { setSaving(false); }
+        }}>
+        {saving ? "Submitting…" : "Submit for verification"}
+      </button>
     </div>
   );
 }

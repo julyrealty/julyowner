@@ -2,24 +2,26 @@
 import { Suspense, useMemo, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { useHub } from "@/lib/store";
-import { PROVIDERS, PROVIDER_CATEGORIES } from "@/lib/demo";
+import { PROVIDER_CATEGORIES } from "@/lib/demo";
 import { Card, Modal, Pill } from "@/components/ui";
 import { Search, ThumbsUp, Phone, ShieldCheck } from "lucide-react";
 
 function ServicesInner() {
   const params = useSearchParams();
-  const { pro, createLead } = useHub();
+  const { pro, createLead, providers, demo } = useHub();
   const [cat, setCat] = useState<string | null>(params.get("cat"));
   const [qtext, setQtext] = useState("");
   const [req, setReq] = useState<string | null>(null);
   const [sent, setSent] = useState(false);
 
   const list = useMemo(() => {
-    let l = PROVIDERS;
+    let l = providers;
     if (cat) l = l.filter((p) => p.category === cat);
     if (qtext) l = l.filter((p) => (p.name + p.category + p.blurb).toLowerCase().includes(qtext.toLowerCase()));
     return [...l].sort((a, b) => Number(b.recommended ?? false) - Number(a.recommended ?? false));
-  }, [cat, qtext]);
+  }, [providers, cat, qtext]);
+  const proName = (pro as { first_name?: string })?.first_name || "your advisor";
+  const directoryEmpty = providers.length === 0;
 
   return (
     <div>
@@ -44,12 +46,33 @@ function ServicesInner() {
           ))}
         </div>
 
-        <Card className="mt-5 flex items-center gap-3 bg-emerald-50/60 p-4">
-          <ThumbsUp size={18} className="shrink-0 text-emerald-600" />
-          <p className="text-sm"><b>Look for the thumbs-up.</b> Those pros were personally added by {(pro as { first_name?: string })?.first_name || "your advisor"} — people they&apos;ve actually hired or vouched for. Nobody pays to be on this list.</p>
-        </Card>
+        {!directoryEmpty && (
+          <Card className="mt-5 flex items-center gap-3 bg-emerald-50/60 p-4">
+            <ThumbsUp size={18} className="shrink-0 text-emerald-600" />
+            <p className="text-sm"><b>Look for the thumbs-up.</b> Those pros were personally added by {proName} — people they&apos;ve actually hired or vouched for. Nobody pays to be on this list.</p>
+          </Card>
+        )}
+
+        {/* No invented businesses for real clients — an empty directory says so plainly. */}
+        {directoryEmpty && (
+          <Card className="mt-5 p-6 text-center">
+            <p className="text-sm font-bold">No trusted pros listed yet</p>
+            <p className="mx-auto mt-1 max-w-md text-[13px] leading-relaxed text-gray-500">
+              {proName} hasn&apos;t added their trusted trades to your hub yet. Tell them what you need
+              and they&apos;ll point you at someone they actually use — that&apos;s the whole idea.
+            </p>
+            <button className="btn btn-primary btn-md mt-4" onClick={() => { setSent(false); setReq("a trusted pro"); }}>
+              Ask {proName} for a referral
+            </button>
+          </Card>
+        )}
 
         <div className="mt-5 space-y-3">
+          {!directoryEmpty && list.length === 0 && (
+            <Card className="p-6 text-center text-sm text-gray-500">
+              Nothing matches that search. Try another category, or ask {proName} directly.
+            </Card>
+          )}
           {list.map((p) => (
             <Card key={p.id} className="flex flex-col gap-3 p-5 sm:flex-row sm:items-center">
               <div className="min-w-0 flex-1">
