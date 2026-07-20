@@ -309,7 +309,7 @@ export default function BuyerValuation() {
               <p className="text-sm font-bold">Run the documents too</p>
               <p className="mt-1 text-[13px] leading-relaxed text-gray-500">
                 Price is half the picture. The strata minutes, disclosure and inspection are the other
-                half — and AI reads them in a couple of minutes.
+                half — and AI reads them for you while you get on with something else.
               </p>
               <Link href={`/hub/scan${q}`} className="btn btn-ghost btn-sm mt-3">Open AI Review <ArrowRight size={14} /></Link>
             </Card>

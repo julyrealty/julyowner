@@ -185,18 +185,36 @@ Deno.serve(async (req) => {
         .order("created_at", { ascending: true }).limit(25);
 
       let done = 0, failed = 0, notified = 0;
+
+      /* One place that fails a scan, so no path can forget to tell the reader.
+         Credits are returned by the ho_scans trigger; this is the email. */
+      const failScan = async (id: string, message: string) => {
+        await admin.from("ho_scans").update({
+          status: "failed", error: message, completed_at: new Date().toISOString(),
+        }).eq("id", id);
+        failed++;
+        try {
+          await fetch(`${supabaseUrl}/functions/v1/ho-emails`, {
+            method: "POST",
+            headers: {
+              "content-type": "application/json",
+              "x-cron-secret": conf0["cron_secret"],
+              Authorization: `Bearer ${Deno.env.get("SUPABASE_ANON_KEY") ?? ""}`,
+            },
+            body: JSON.stringify({ action: "scan_failed", scan_id: id }),
+          });
+        } catch (e) {
+          console.error(`[ho-scan] failure notice not sent for ${id}: ${e instanceof Error ? e.message : String(e)}`);
+        }
+      };
+
       for (const row of pending ?? []) {
         // Give up on jobs that have been running far longer than any real scan.
         const ageMin = (Date.now() - new Date(row.created_at).getTime()) / 60000;
         try {
           const r = await fetch(`${base0}/scans/${encodeURIComponent(row.job_id)}`, { headers: H0 });
           if (!r.ok) {
-            if (ageMin > 60) {
-              await admin.from("ho_scans").update({
-                status: "failed", error: "The scan service stopped responding.", completed_at: new Date().toISOString(),
-              }).eq("id", row.id);
-              failed++;
-            }
+            if (ageMin > 60) await failScan(row.id, "The scan service stopped responding.");
             continue;
           }
           const scan = await r.json();
@@ -233,17 +251,9 @@ Deno.serve(async (req) => {
               console.error(`[ho-scan] notify failed: ${e instanceof Error ? e.message : String(e)}`);
             }
           } else if (scan.status === "failed") {
-            await admin.from("ho_scans").update({
-              status: "failed",
-              error: scan.errorMessage || "The scan failed.",
-              completed_at: new Date().toISOString(),
-            }).eq("id", row.id);
-            failed++;
+            await failScan(row.id, scan.errorMessage || "The scan failed.");
           } else if (ageMin > 60) {
-            await admin.from("ho_scans").update({
-              status: "failed", error: "The scan timed out.", completed_at: new Date().toISOString(),
-            }).eq("id", row.id);
-            failed++;
+            await failScan(row.id, "The scan timed out.");
           }
         } catch (e) {
           console.error(`[ho-scan] poll ${row.id}: ${e instanceof Error ? e.message : String(e)}`);
@@ -343,10 +353,15 @@ Deno.serve(async (req) => {
         return json({ job_id: inflight.job_id, scan_id: inflight.id, status: "pending", reused: true });
       }
 
-      // 10-minute signed URL — BuyerAiPro fetches the bytes server-side right away.
+      // Six-hour signed URL. This was ten minutes on the assumption that
+      // BuyerAiPro fetches the bytes immediately — but if its queue is backed
+      // up and it fetches when the job actually starts, the link is already
+      // dead and the job stalls forever with no error. That matches what we
+      // saw: accepted, job id returned, still pending an hour later. A longer
+      // window costs nothing; it is one opaque URL to one document.
       const { data: signed, error: signErr } = await admin.storage
         .from("ho-docs")
-        .createSignedUrl(doc.storage_path, 600);
+        .createSignedUrl(doc.storage_path, 6 * 60 * 60);
       if (signErr || !signed?.signedUrl) {
         throw new Error(`signed URL failed: ${signErr?.message ?? "no URL returned"}`);
       }

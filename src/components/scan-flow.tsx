@@ -209,7 +209,9 @@ export function ScanFlow({ doc, onClose, initialType }: { doc: Doc; onClose: () 
             </button>
           ))}
         </div>
-        <p className="text-center text-xs text-gray-400">Scans usually take 1–3 minutes.</p>
+        <p className="text-center text-xs text-gray-400">
+          Big documents take longer. You can close this — we&apos;ll email you when it&apos;s ready.
+        </p>
       </div>
     );
   }

@@ -111,7 +111,7 @@ Deno.serve(async (req: Request) => {
   const site = await cfg("site_url");
   const ops = (await cfg("ops_email")) || "info@july.ca";
 
-  if (action === "monthly" || action === "test" || action === "dup_alert" || action === "valuation_lead" || action === "weekly_pro" || action === "scan_ready") {
+  if (action === "monthly" || action === "test" || action === "dup_alert" || action === "valuation_lead" || action === "weekly_pro" || action === "scan_ready" || action === "scan_failed") {
     const secret = req.headers.get("x-cron-secret");
     if (!secret || secret !== (await cfg("cron_secret"))) {
       return new Response(JSON.stringify({ error: "forbidden" }), { status: 403, headers: JSONH });
@@ -158,6 +158,36 @@ Deno.serve(async (req: Request) => {
         "An AI reading of the document you uploaded — helpful for knowing what to ask, not a substitute for professional advice.");
       const ok = await send(to, `Your ${label} review is ready`, html);
       await admin.from("ho_email_log").insert({ kind: "scan", hub_id: scan.hub_id, ok, recipients: to.length });
+      return new Response(JSON.stringify({ ok }), { headers: JSONH });
+    }
+
+    /* A review failed. Silence here is the worst outcome: the reader uploaded
+       something, was told we'd email, and would otherwise wait forever. */
+    if (action === "scan_failed") {
+      const { data: scan } = await admin.from("ho_scans")
+        .select("id,hub_id,document_name,scan_type,error,started_by")
+        .eq("id", String(body.scan_id)).maybeSingle();
+      if (!scan) return new Response(JSON.stringify({ error: "not found" }), { status: 404, headers: JSONH });
+
+      let to: { email: string; name?: string }[] = [];
+      if (scan.started_by) {
+        const { data: m } = await admin.from("ho_hub_members")
+          .select("email,first_name").eq("hub_id", scan.hub_id).eq("user_id", scan.started_by).maybeSingle();
+        if (m?.email) to = [{ email: m.email as string, name: (m.first_name as string) ?? undefined }];
+      }
+      if (to.length === 0) return new Response(JSON.stringify({ ok: false, reason: "no recipient" }), { headers: JSONH });
+
+      const label = SCAN_LABEL[String(scan.scan_type)] ?? "document";
+      // Never blame the reader, and never imply the document was at fault when
+      // we do not know that. Say what happened and what it costs them: nothing.
+      const html = layout(`We couldn't finish that ${esc(label)} review`,
+        `<p style="font-size:15px;line-height:1.6">Something went wrong reading <b>${esc(scan.document_name ?? "your document")}</b>, so there's no summary to show you.</p>
+         <p style="font-size:15px;line-height:1.6">Your document is still saved in your hub, and any credits for this review have been returned. You can start it again whenever you like, or send it to your advisor to read the old-fashioned way.</p>
+         <p style="margin-top:18px"><a href="${site}/hub/scan" style="display:inline-block;background:#0e7c7b;color:#ffffff;border-radius:999px;padding:12px 22px;font-weight:700;text-decoration:none">Try it again</a></p>`,
+        "#c2603f",
+        "If this keeps happening, reply to this email — we'd rather hear about it than have you wonder.");
+      const ok = await send(to, `We couldn't finish that ${label} review`, html);
+      await admin.from("ho_email_log").insert({ kind: "scan_failed", hub_id: scan.hub_id, ok, recipients: to.length });
       return new Response(JSON.stringify({ ok }), { headers: JSONH });
     }
 

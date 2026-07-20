@@ -172,12 +172,15 @@ export default function AiReview() {
             The boring documents, read properly.
           </h1>
           <p className="mt-3 max-w-2xl text-sm leading-relaxed text-white/70">
-            Strata minutes, inspections, title, disclosures, contracts — the paperwork that decides
+            Strata packages, inspections, title, disclosures, contracts — the paperwork that decides
             whether a home is a good buy, and the part nobody reads closely enough. Drop a file in and
-            get the findings in a couple of minutes.
+            we&apos;ll email you the findings.
           </p>
+          {/* No duration claim. Reading time depends on the document — a title
+              search and an 800-page strata package are not the same job — and
+              nothing here measures it, so promising minutes was a guess. */}
           <div className="mt-5 flex flex-wrap gap-4 text-xs font-semibold text-white/60">
-            <span className="flex items-center gap-1.5"><Clock size={13} /> Usually 1–3 minutes</span>
+            <span className="flex items-center gap-1.5"><Clock size={13} /> Runs in the background</span>
             <span className="flex items-center gap-1.5"><ShieldCheck size={13} /> Private to your hub</span>
             <span className="flex items-center gap-1.5"><UploadCloud size={13} /> PDF, up to 20 MB</span>
           </div>

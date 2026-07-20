@@ -27,7 +27,7 @@ const PERSONAS: Record<PersonaKey, {
     features: [
       { icon: Search, h: "Every home you're watching, one list", b: "Saved homes and searches from JULY Search flow straight into your HQ — no lost tabs, no forwarded links." },
       { icon: Wallet, h: "What you can actually afford", b: "Real purchasing-power math — down payment, qualification, monthly cost — before you fall in love with the wrong price range." },
-      { icon: FileScan, h: "AI reads the documents first", b: "Strata packages, inspections, disclosures — scanned and summarized in minutes, so surprises surface before your offer, not after." },
+      { icon: FileScan, h: "AI reads the documents first", b: "Strata packages, inspections, disclosures — read and summarized for you, so surprises surface before your offer, not after." },
       { icon: CalendarDays, h: "Tours, planned with your agent", b: "Request a showing and your agent lines it up — and preps what to look for before you walk in." },
     ],
     clientNoun: "buyer clients",
