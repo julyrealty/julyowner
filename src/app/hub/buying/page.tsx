@@ -8,7 +8,19 @@ import {
 } from "lucide-react";
 import { useHub } from "@/lib/store";
 import { cad, compact, purchasingPower, fmtDate, monthlyPayment } from "@/lib/calc";
-import { Card, SectionLabel, Avatar, Pill } from "@/components/ui";
+import { useAlerts, describeAlert, FREQUENCIES, type Alert } from "@/lib/alerts";
+import { Card, SectionLabel, Avatar, Pill, Modal, Field } from "@/components/ui";
+
+/** A fresh alert. Only criteria keys JULY Search's runner is known to read. */
+const BLANK_ALERT = {
+  id: undefined as string | undefined,
+  name: "",
+  scope: "area" as Alert["scope"],
+  criteria: {} as Record<string, string>,
+  alert_new: true,
+  alert_sold: false,
+  frequency: "daily" as Alert["frequency"],
+};
 
 const SEARCH_URL = "https://search.july.ca";
 /** watched_items.ref / viewed_items.ref is the MLS number JULY Search routes on. */
@@ -67,6 +79,34 @@ export default function BuyingPage() {
 
   /* activation */
   const [starting, setStarting] = useState(false);
+
+  /* alerts — live in JULY Search, managed from here */
+  const { alerts, save: saveAlert, remove: removeAlert, busy: alertBusy } = useAlerts(hub?.id, !demo);
+  const [editing, setEditing] = useState<typeof BLANK_ALERT | Alert | null>(null);
+  const [alertErr, setAlertErr] = useState<string | null>(null);
+
+  async function submitAlert(draft: typeof BLANK_ALERT) {
+    if (!draft.criteria.city?.trim()) { setAlertErr("Give it a city or area to watch."); return; }
+    const res = await saveAlert({
+      id: draft.id,
+      name: draft.name.trim() || draft.criteria.city.trim(),
+      criteria: draft.criteria,
+      scope: draft.scope,
+      alert_new: draft.alert_new,
+      alert_sold: draft.alert_sold,
+      frequency: draft.frequency,
+    });
+    if (res.ok) { setEditing(null); setAlertErr(null); return; }
+    setAlertErr(
+      res.error === "demo"
+        ? "This is the demo hub — in your real one this creates a live JULY Search alert."
+        : res.error === "not_linked"
+          ? "Connect your JULY Search account first — alerts live there."
+          : res.error === "limit_reached"
+            ? "That's the maximum number of alerts. Delete one to add another."
+            : "Couldn't save that alert. Try again in a moment.",
+    );
+  }
 
   /* advisor message */
   const [msg, setMsg] = useState("");
@@ -187,9 +227,11 @@ export default function BuyingPage() {
         )}
       </section>
 
-      <div className="grid gap-6 lg:grid-cols-[1fr_360px]">
+      {/* min-w-0: grid children default to min-width:auto, so a wide listing
+          card or photo pushes the column past the viewport on mobile. */}
+      <div className="grid min-w-0 gap-6 lg:grid-cols-[1fr_360px]">
         {/* MAIN */}
-        <div className="space-y-8">
+        <div className="min-w-0 space-y-8">
           {/* connect card — live hubs with no JULY Search account under this email */}
           {buyer.loaded && !buyer.linked && (
             <Card className="overflow-hidden">
@@ -289,31 +331,62 @@ export default function BuyingPage() {
                 )}
               </section>
 
-              {/* SAVED SEARCHES */}
+              {/* ALERTS — created here, delivered by JULY Search's own runner. */}
               <section>
-                <SectionLabel>Saved searches</SectionLabel>
+                <SectionLabel right={
+                  alerts !== null && buyer.linked ? (
+                    <button className="link text-xs font-bold" onClick={() => { setEditing(BLANK_ALERT); setAlertErr(null); }}>
+                      + New alert
+                    </button>
+                  ) : undefined
+                }>
+                  Alerts
+                </SectionLabel>
                 <Card className="divide-y divide-line">
-                  {buyer.searches.length === 0 && (
-                    <p className="p-5 text-sm text-gray-500">
-                      Save a search on JULY Search and new matches will find you — no daily scrolling required.
-                    </p>
+                  {alerts === null && <p className="p-5 text-sm text-gray-400">Loading your alerts…</p>}
+
+                  {alerts !== null && alerts.length === 0 && (
+                    <div className="p-5">
+                      <p className="text-sm font-bold">Nothing watching for you yet</p>
+                      <p className="mt-1 text-[13px] leading-relaxed text-gray-500">
+                        Set an alert for an area and JULY Search will tell you when something new comes
+                        up, instead of you checking every day.
+                      </p>
+                      <button className="btn btn-primary btn-sm mt-3" onClick={() => { setEditing(BLANK_ALERT); setAlertErr(null); }}>
+                        <Bell size={14} /> Set up an alert
+                      </button>
+                    </div>
                   )}
-                  {buyer.searches.map((s, i) => (
-                    <div key={`${s.name ?? "search"}-${i}`} className="flex flex-wrap items-center justify-between gap-2 p-4">
-                      <div className="flex min-w-0 items-center gap-2.5">
-                        <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-teal-soft text-teal-deep"><Search size={15} /></span>
+
+                  {(alerts ?? []).map((a) => (
+                    <div key={a.id} className="flex flex-wrap items-center justify-between gap-3 p-4">
+                      <div className="flex min-w-0 flex-1 items-center gap-2.5">
+                        <span className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-lg ${
+                          a.frequency === "off" ? "bg-gray-100 text-gray-400" : "bg-teal-soft text-teal-deep"}`}>
+                          {a.scope === "area" ? <MapPin size={15} /> : <Search size={15} />}
+                        </span>
                         <div className="min-w-0">
-                          <p className="truncate text-sm font-bold">{s.name || "Saved search"}</p>
-                          <p className="text-[11px] text-gray-400">since {fmtDate(s.created_at)}</p>
+                          <p className="truncate text-sm font-bold">{a.name || "Saved search"}</p>
+                          <p className="truncate text-[11px] text-gray-400">{describeAlert(a)}</p>
                         </div>
                       </div>
-                      <div className="flex shrink-0 items-center gap-1.5">
-                        {s.alert_new && <Pill tone="teal"><Bell size={11} /> New listings</Pill>}
-                        {s.alert_sold && <Pill tone="gray"><Bell size={11} /> Solds</Pill>}
+                      <div className="flex shrink-0 flex-wrap items-center gap-1.5">
+                        {a.alert_new && a.frequency !== "off" && <Pill tone="teal"><Bell size={11} /> New</Pill>}
+                        {a.alert_sold && a.frequency !== "off" && <Pill tone="gray"><Bell size={11} /> Solds</Pill>}
+                        {a.frequency === "off" && <Pill tone="gray">Paused</Pill>}
+                        <button className="rounded-full border border-line px-2.5 py-1 text-[11px] font-bold text-gray-500 transition hover:border-teal hover:text-teal-deep"
+                          onClick={() => { setEditing(a); setAlertErr(null); }}>
+                          Edit
+                        </button>
                       </div>
                     </div>
                   ))}
                 </Card>
+                {alerts !== null && alerts.length > 0 && (
+                  <p className="mt-2 text-[11px] leading-relaxed text-gray-400">
+                    Alerts are sent by JULY Search — the same ones you&apos;d get from search.july.ca.
+                  </p>
+                )}
               </section>
 
               {/* TOUR REQUESTS */}
@@ -351,7 +424,7 @@ export default function BuyingPage() {
         </div>
 
         {/* SIDEBAR */}
-        <aside className="space-y-6">
+        <aside className="min-w-0 space-y-6">
           <section>
             <SectionLabel>Your buying team</SectionLabel>
             <Card className="p-5">
@@ -465,6 +538,113 @@ export default function BuyingPage() {
             </Card>
           </section>
         </aside>
+      </div>
+
+      {/* ALERT EDITOR. Only offers filters JULY Search's runner is known to
+          apply — a field it silently ignored would tell the buyer they were
+          filtered when they weren't. */}
+      <Modal open={!!editing} onClose={() => { setEditing(null); setAlertErr(null); }}
+        title={editing && "id" in editing && editing.id ? "Edit alert" : "New alert"}>
+        {editing && (
+          <AlertEditor
+            draft={editing}
+            busy={alertBusy}
+            error={alertErr}
+            onSubmit={submitAlert}
+            onDelete={"id" in editing && editing.id
+              ? async () => { await removeAlert(editing.id as string); setEditing(null); }
+              : undefined}
+          />
+        )}
+      </Modal>
+    </div>
+  );
+}
+
+function AlertEditor({ draft, busy, error, onSubmit, onDelete }: {
+  draft: typeof BLANK_ALERT | Alert;
+  busy: boolean;
+  error: string | null;
+  onSubmit: (d: typeof BLANK_ALERT) => void;
+  onDelete?: () => void;
+}) {
+  const [d, setD] = useState<typeof BLANK_ALERT>({
+    id: "id" in draft ? draft.id : undefined,
+    name: draft.name ?? "",
+    scope: draft.scope ?? "area",
+    criteria: { ...(draft.criteria ?? {}) },
+    alert_new: draft.alert_new ?? true,
+    alert_sold: draft.alert_sold ?? false,
+    frequency: draft.frequency ?? "daily",
+  });
+  const setCrit = (k: string, v: string) =>
+    setD((p) => {
+      const c = { ...p.criteria };
+      if (v.trim()) c[k] = v.trim(); else delete c[k];
+      return { ...p, criteria: c };
+    });
+
+  return (
+    <div className="space-y-4">
+      <Field label="City or area">
+        <input className="input" placeholder="Burnaby" value={d.criteria.city ?? ""}
+          onChange={(e) => setCrit("city", e.target.value)} autoFocus />
+      </Field>
+
+      <div className="grid grid-cols-2 gap-3">
+        <Field label="Bedrooms (min)">
+          <input className="input tabular" inputMode="numeric" placeholder="Any"
+            value={d.criteria.beds ?? ""} onChange={(e) => setCrit("beds", e.target.value.replace(/\D/g, ""))} />
+        </Field>
+        <Field label="Bathrooms (min)">
+          <input className="input tabular" inputMode="numeric" placeholder="Any"
+            value={d.criteria.baths ?? ""} onChange={(e) => setCrit("baths", e.target.value.replace(/\D/g, ""))} />
+        </Field>
+      </div>
+
+      <Field label="Name (optional)">
+        <input className="input" placeholder="Defaults to the area" value={d.name}
+          onChange={(e) => setD({ ...d, name: e.target.value })} />
+      </Field>
+
+      <Field label="Tell me about">
+        <div className="mt-1 flex flex-wrap gap-2">
+          <button type="button" onClick={() => setD({ ...d, alert_new: !d.alert_new })}
+            className={`rounded-full border px-3 py-1.5 text-[12px] font-bold transition ${
+              d.alert_new ? "border-teal bg-teal-soft text-teal-deep" : "border-line text-gray-500"}`}>
+            New listings
+          </button>
+          <button type="button" onClick={() => setD({ ...d, alert_sold: !d.alert_sold })}
+            className={`rounded-full border px-3 py-1.5 text-[12px] font-bold transition ${
+              d.alert_sold ? "border-teal bg-teal-soft text-teal-deep" : "border-line text-gray-500"}`}>
+            Sold prices
+          </button>
+        </div>
+      </Field>
+
+      <Field label="How often">
+        <select className="input" value={d.frequency}
+          onChange={(e) => setD({ ...d, frequency: e.target.value as Alert["frequency"] })}>
+          {FREQUENCIES.map((f) => <option key={f.value} value={f.value}>{f.label}</option>)}
+        </select>
+      </Field>
+
+      <p className="text-[11px] leading-relaxed text-gray-400">
+        Price and finer filters live on JULY Search — build the search there and its alert appears
+        here too. Sent by JULY Search, so it arrives the same way as any other alert you have.
+      </p>
+
+      {error && <p className="text-[13px] text-coral">{error}</p>}
+
+      <div className="flex gap-2">
+        <button className="btn btn-primary btn-lg flex-1" disabled={busy} onClick={() => onSubmit(d)}>
+          {busy ? "Saving…" : d.id ? "Save changes" : "Create alert"}
+        </button>
+        {onDelete && (
+          <button className="btn btn-ghost btn-lg text-coral" disabled={busy} onClick={onDelete}>
+            Delete
+          </button>
+        )}
       </div>
     </div>
   );

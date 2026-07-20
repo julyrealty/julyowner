@@ -53,17 +53,39 @@ async function buyerSnapshot(email: string) {
   }
 }
 
+/** Call any hub_* bridge RPC on july-platform with the shared secret. */
+async function bridge(fn: string, args: Record<string, unknown>): Promise<unknown | null> {
+  try {
+    const base = await cfg("platform_url");
+    const key = await cfg("platform_anon_key");
+    const secret = await cfg("platform_bridge_secret");
+    if (!base || !key || !secret) return null;
+    const res = await fetch(`${base}/rest/v1/rpc/${fn}`, {
+      method: "POST",
+      headers: { apikey: key, "content-type": "application/json" },
+      body: JSON.stringify({ ...args, p_secret: secret }),
+    });
+    if (!res.ok) return null;
+    return await res.json().catch(() => null);
+  } catch {
+    return null;
+  }
+}
+
+const ACTIONS = new Set(["snapshot", "alerts_list", "alert_save", "alert_delete"]);
+
 Deno.serve(async (req: Request) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: CORS });
   let body: Record<string, unknown> = {};
   try { body = await req.json(); } catch { /* empty */ }
-  if ((body.action as string) !== "snapshot") {
+  const action = String(body.action ?? "");
+  if (!ACTIONS.has(action)) {
     return new Response(JSON.stringify({ error: "unknown action" }), { status: 400, headers: JSONH });
   }
 
   // Internal test path: shared secret + explicit email.
   const secret = req.headers.get("x-cron-secret");
-  if (secret && secret === (await cfg("cron_secret"))) {
+  if (action === "snapshot" && secret && secret === (await cfg("cron_secret"))) {
     const snap = await buyerSnapshot(String(body.email ?? ""));
     return new Response(JSON.stringify(snap), { headers: JSONH });
   }
@@ -78,6 +100,46 @@ Deno.serve(async (req: Request) => {
   const { data: mem } = await admin.from("ho_hub_members").select("id").eq("hub_id", hubId).eq("user_id", user.id).maybeSingle();
   if (!mem) return new Response(JSON.stringify({ error: "not found" }), { status: 404, headers: JSONH });
 
-  const snap = await buyerSnapshot(user.email);
-  return new Response(JSON.stringify(snap), { headers: JSONH });
+  if (action === "snapshot") {
+    const snap = await buyerSnapshot(user.email);
+    return new Response(JSON.stringify(snap), { headers: JSONH });
+  }
+
+  /* ---- alerts ----
+     The email is always the CALLER's, taken from their verified session and
+     never from the request body. That is what stops a hub member managing
+     somebody else's JULY Search alerts. */
+  if (action === "alerts_list") {
+    const out = await bridge("hub_alert_list", { p_email: user.email });
+    return new Response(JSON.stringify(out ?? { linked: false, alerts: [] }), { headers: JSONH });
+  }
+
+  if (action === "alert_save") {
+    const crit = body.criteria;
+    if (!crit || typeof crit !== "object" || Array.isArray(crit)) {
+      return new Response(JSON.stringify({ error: "criteria must be an object" }), { status: 400, headers: JSONH });
+    }
+    const out = await bridge("hub_alert_save", {
+      p_email: user.email,
+      p_name: String(body.name ?? "").slice(0, 120),
+      p_criteria: crit,
+      p_scope: ["search", "area", "building"].includes(String(body.scope)) ? String(body.scope) : "search",
+      p_alert_new: body.alert_new !== false,
+      p_alert_sold: body.alert_sold === true,
+      p_frequency: ["instant", "daily", "weekly", "off"].includes(String(body.frequency)) ? String(body.frequency) : "daily",
+      p_id: body.id ? String(body.id) : null,
+    });
+    if (!out) return new Response(JSON.stringify({ error: "Alerts are unavailable right now." }), { status: 502, headers: JSONH });
+    return new Response(JSON.stringify(out), { headers: JSONH });
+  }
+
+  if (action === "alert_delete") {
+    const id = String(body.id ?? "");
+    if (!id) return new Response(JSON.stringify({ error: "id required" }), { status: 400, headers: JSONH });
+    const out = await bridge("hub_alert_delete", { p_email: user.email, p_id: id });
+    if (!out) return new Response(JSON.stringify({ error: "Alerts are unavailable right now." }), { status: 502, headers: JSONH });
+    return new Response(JSON.stringify(out), { headers: JSONH });
+  }
+
+  return new Response(JSON.stringify({ error: "unknown action" }), { status: 400, headers: JSONH });
 });
