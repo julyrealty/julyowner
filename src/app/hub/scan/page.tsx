@@ -7,11 +7,12 @@ import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import {
   FileSearch, Building2, ScrollText, ClipboardCheck, FileSignature,
-  UploadCloud, Sparkles, ArrowRight, ShieldCheck, Clock, Check, AlertTriangle, Loader2,
+  UploadCloud, Sparkles, ArrowRight, ShieldCheck, Clock, Check, AlertTriangle, Loader2, Coins,
 } from "lucide-react";
 import { useHub, type Doc } from "@/lib/store";
 import { sb } from "@/lib/supabase";
 import { relTime } from "@/lib/calc";
+import { useCredits, useHelcimScript, buyCredits } from "@/lib/credits";
 import { Card, SectionLabel, Modal, Pill } from "@/components/ui";
 import { ScanFlow } from "@/components/scan-flow";
 
@@ -70,6 +71,31 @@ export default function AiReview() {
   const [rows, setRows] = useState<ScanRow[] | null>(null);
   const [open, setOpen] = useState<ScanRow | null>(null);
   const [cancelling, setCancelling] = useState<string | null>(null);
+  const [topUp, setTopUp] = useState(false);
+  const [buying, setBuying] = useState<string | null>(null);
+  const [bought, setBought] = useState<number | null>(null);
+
+  const { balance, pricing, refresh: refreshCredits } = useCredits(!demo);
+  const helcimReady = useHelcimScript();
+
+  /** Whether the current balance covers a given scanner, for the price pill. */
+  const affordable = (key: string) => {
+    const cost = pricing?.costs?.[key] ?? 0;
+    if (!pricing?.enforced || cost === 0 || balance === null) return true;
+    return balance >= cost;
+  };
+
+  async function purchase(packKey: string) {
+    setBuying(packKey); setErr(null);
+    const res = await buyCredits(packKey);
+    setBuying(null);
+    if (res.ok) {
+      setBought(res.coins);
+      await refreshCredits();
+      return;
+    }
+    if (!res.cancelled) setErr(res.error ?? "That didn't go through.");
+  }
   const fileRef = useRef<HTMLInputElement>(null);
 
   /* Your reviews — loaded from the server, so they are here whether or not
@@ -219,6 +245,29 @@ export default function AiReview() {
           </section>
         )}
 
+        {/* CREDITS — shown only once there is a real balance to show. In demo
+            mode there is no ledger, so the strip stays out of the way. */}
+        {!demo && balance !== null && (
+          <Card className="mb-6 flex flex-wrap items-center justify-between gap-3 p-4">
+            <div className="min-w-0">
+              <p className="flex items-center gap-2 text-sm font-extrabold">
+                <Coins size={16} className="text-teal-deep" />
+                {balance} credit{balance === 1 ? "" : "s"}
+              </p>
+              <p className="mt-0.5 text-[12px] leading-relaxed text-gray-500">
+                {balance === 0
+                  ? "You've used your free reviews. Top up to keep going."
+                  : pricing?.enforced
+                    ? "Each review costs credits — the price is on every card below."
+                    : "Reviews are free while we finish setting this up."}
+              </p>
+            </div>
+            <button className="btn btn-ghost btn-sm shrink-0" onClick={() => setTopUp(true)}>
+              Add credits <ArrowRight size={14} />
+            </button>
+          </Card>
+        )}
+
         <SectionLabel right={<Link href={`/hub/home/documents${q}`} className="link text-xs">All my documents</Link>}>
           Choose what to review
         </SectionLabel>
@@ -244,8 +293,18 @@ export default function AiReview() {
                   </li>
                 ))}
               </ul>
-              <span className="mt-4 inline-flex items-center gap-1.5 text-[13px] font-bold text-teal-deep">
-                <UploadCloud size={15} /> Upload &amp; review
+              <span className="mt-4 flex items-center justify-between gap-2">
+                <span className="inline-flex items-center gap-1.5 text-[13px] font-bold text-teal-deep">
+                  <UploadCloud size={15} /> Upload &amp; review
+                </span>
+                {/* Price before the click, never after — nobody should discover
+                    the cost of a thing by having been charged for it. */}
+                {(pricing?.costs?.[s.key] ?? 0) > 0 && (
+                  <span className={`shrink-0 rounded-full px-2 py-0.5 text-[11px] font-extrabold ${
+                    affordable(s.key) ? "bg-gray-100 text-gray-500" : "bg-amber-100 text-amber-700"}`}>
+                    {pricing!.costs[s.key]} credits
+                  </span>
+                )}
               </span>
             </button>
           ))}
@@ -273,6 +332,52 @@ export default function AiReview() {
 
       <input ref={fileRef} type="file" accept="application/pdf,.pdf" className="hidden"
         onChange={(e) => onFile(e.target.files)} />
+
+      {/* TOP UP — card details go straight to Helcim's hosted iframe and never
+          touch this app. */}
+      <Modal open={topUp} onClose={() => { setTopUp(false); setBought(null); }} title="Add credits">
+        {bought !== null ? (
+          <div className="py-4 text-center">
+            <p className="text-lg font-bold">{bought} credits added ✓</p>
+            <p className="mx-auto mt-1 max-w-xs text-sm text-gray-500">
+              Your balance is now {balance ?? bought}. Nothing expires.
+            </p>
+            <button className="btn btn-primary btn-md mt-5" onClick={() => { setTopUp(false); setBought(null); }}>
+              Done
+            </button>
+          </div>
+        ) : (
+          <div className="space-y-3">
+            <p className="text-[13px] leading-relaxed text-gray-600">
+              Credits pay for AI document reviews. A title search or disclosure is{" "}
+              {pricing?.costs?.title ?? 5}; a full strata package is {pricing?.costs?.strata ?? 25},
+              because it is a great deal more reading. Credits don&apos;t expire, and a review that
+              fails is refunded automatically.
+            </p>
+            {(pricing?.packs ?? []).map((p, i) => (
+              <button key={p.key} disabled={!helcimReady || buying !== null}
+                onClick={() => purchase(p.key)}
+                className={`flex w-full items-center justify-between gap-3 rounded-xl border p-4 text-left transition disabled:opacity-60 ${
+                  i === 1 ? "border-teal bg-teal-soft" : "border-line hover:border-teal"}`}>
+                <span className="min-w-0">
+                  <span className="block text-sm font-extrabold">{p.coins} credits</span>
+                  <span className="block text-[11px] text-gray-500">
+                    ${(p.price / p.coins).toFixed(2)} each
+                    {i === 1 ? " · most popular" : i === 2 ? " · best value" : ""}
+                  </span>
+                </span>
+                <span className="tabular shrink-0 text-lg font-extrabold">
+                  {buying === p.key ? <Loader2 size={18} className="animate-spin" /> : `$${p.price}`}
+                </span>
+              </button>
+            ))}
+            <p className="text-[11px] leading-relaxed text-gray-400">
+              One-time purchase in CAD, not a subscription. Payment is handled by Helcim — your card
+              details never reach us.
+            </p>
+          </div>
+        )}
+      </Modal>
 
       {/* Closing this no longer cancels anything — the job is server-side. */}
       <Modal open={!!scanDoc} onClose={() => { setScanDoc(null); setScanType(undefined); void loadRows(); }} title="AI review">

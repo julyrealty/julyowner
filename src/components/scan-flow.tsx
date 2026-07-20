@@ -58,7 +58,15 @@ async function invokeScan(body: Record<string, unknown>): Promise<ScanInvokeData
     let msg = "The scan service is unavailable right now. Please try again.";
     const ctx = (error as { context?: unknown }).context;
     if (ctx instanceof Response) {
-      try { const j = await ctx.clone().json(); if (j?.error) msg = j.error; } catch { /* keep default */ }
+      try {
+        const j = await ctx.clone().json();
+        // The server speaks in codes; the buyer should not have to.
+        if (j?.error === "insufficient_credits") {
+          msg = `This review costs ${j.needed} credits and you have ${j.balance}. Add credits on the AI Review page and nothing else is lost — your document is already saved.`;
+        } else if (j?.error) {
+          msg = j.error;
+        }
+      } catch { /* keep default */ }
     }
     throw new Error(msg);
   }
