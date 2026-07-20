@@ -25,7 +25,10 @@ async function cfg(k: string): Promise<string> {
   return cfgCache[k];
 }
 
-const EMPTY = { linked: false, watched: [], searches: [], tours: [] };
+// `viewed` belongs here. It was missing, so Recently Viewed rendered empty for
+// every live buyer even when JULY Search had rows: the bridge returned them and
+// this function quietly dropped the key on the way through.
+const EMPTY = { linked: false, watched: [], searches: [], tours: [], viewed: [] };
 
 /** Ask july-platform for this email's JULY Search activity. Any failure → EMPTY. */
 async function buyerSnapshot(email: string) {
@@ -47,6 +50,7 @@ async function buyerSnapshot(email: string) {
       watched: Array.isArray(data.watched) ? data.watched : [],
       searches: Array.isArray(data.searches) ? data.searches : [],
       tours: Array.isArray(data.tours) ? data.tours : [],
+      viewed: Array.isArray(data.viewed) ? data.viewed : [],
     };
   } catch {
     return EMPTY;

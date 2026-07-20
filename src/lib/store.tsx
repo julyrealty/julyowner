@@ -566,9 +566,13 @@ export function HubProvider({ children, demo }: { children: React.ReactNode; dem
         persistDemoFn((s) => ({ messages: [...s.messages, msg] }));
         return;
       }
-      const { data } = await sb().from("ho_messages")
+      const { data, error } = await sb().from("ho_messages")
         .insert({ hub_id: state.hub.id, sender_id: state.profile?.id, sender_role: "homeowner", sender_name: name, body: msg.body })
         .select("id,sender_role,sender_name,body,created_at").single();
+      // Never show a message as sent when it wasn't. Dropping the error here
+      // put the message in the thread optimistically, so a failure looked like
+      // success until the page reloaded and it was gone.
+      if (error) throw new Error(error.message);
       setState((s) => ({ ...s, messages: [...s.messages, (data as Message) || msg] }));
       actions.logActivity("Sent a message", msg.body.slice(0, 120));
     },

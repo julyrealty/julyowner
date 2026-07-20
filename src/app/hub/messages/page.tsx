@@ -9,6 +9,7 @@ export default function MessagesPage() {
   const { hub, messages, pro, profile, demo, sendMessage } = useHub();
   const [draft, setDraft] = useState("");
   const [sending, setSending] = useState(false);
+  const [err, setErr] = useState<string | null>(null);
   const endRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -18,7 +19,16 @@ export default function MessagesPage() {
   async function submit() {
     if (!draft.trim() || sending) return;
     setSending(true);
-    try { await sendMessage(draft); setDraft(""); } finally { setSending(false); }
+    setErr(null);
+    try {
+      await sendMessage(draft);
+      setDraft("");
+    } catch {
+      // The draft stays in the box; say so rather than leaving them guessing.
+      setErr("That didn't send. Your message is still here — try again in a moment.");
+    } finally {
+      setSending(false);
+    }
   }
 
   if (!hub) return null;
@@ -58,6 +68,9 @@ export default function MessagesPage() {
           })}
           <div ref={endRef} />
         </div>
+        {err && (
+          <p className="border-t border-line px-3 pt-3 text-[13px] text-coral">{err}</p>
+        )}
         <div className="flex items-end gap-2 border-t border-line p-3">
           <textarea
             className="input min-h-11 flex-1 resize-none py-2.5 text-sm"
