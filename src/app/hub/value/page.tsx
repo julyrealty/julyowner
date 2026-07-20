@@ -26,7 +26,20 @@ type Result = {
   attribution?: string | null;
 };
 
-type Suggestion = { property_id: string; address: string };
+/**
+ * Two kinds of hit. `value` has a JULY Value estimate behind it. `listing` is a
+ * real address from the MLS listing set with NO estimate — offered because
+ * JULY Value's index is far sparser than the listings, and a buyer typing a
+ * real address deserves better than silence. Never conflate the two.
+ */
+type Suggestion = {
+  address: string;
+  source?: "value" | "listing";
+  property_id?: string;
+  listing_key?: string;
+  list_price?: number | null;
+  status?: string | null;
+};
 
 const CONFIDENCE_NOTE: Record<string, string> = {
   high: "Plenty of comparable sales nearby — this range is tight for a reason.",
@@ -53,6 +66,7 @@ export default function BuyerValuation() {
   const [cursor, setCursor] = useState(-1);
   const [busy, setBusy] = useState(false);
   const [res, setRes] = useState<Result | null>(null);
+  const [listing, setListing] = useState<Suggestion | null>(null);
   const [err, setErr] = useState<string | null>(null);
   const boxRef = useRef<HTMLDivElement>(null);
   // Only the newest search may write results — a slow early keystroke must not
@@ -81,7 +95,8 @@ export default function BuyerValuation() {
           rows = DEMO_SUGGESTIONS.filter((s) => s.address.toLowerCase().includes(lc.split(" ")[0]));
         } else {
           const { data } = await sb().functions.invoke("ho-value", { body: { action: "search", q: term } });
-          rows = ((data as { results?: Suggestion[] })?.results ?? []).filter((r) => r.property_id);
+          // Keep listing-only hits: they have no property_id by design.
+          rows = ((data as { results?: Suggestion[] })?.results ?? []).filter((r) => r?.address);
         }
       } catch {
         rows = [];
@@ -93,7 +108,16 @@ export default function BuyerValuation() {
   }, [query, demo]);
 
   const pick = useCallback(async (s: Suggestion) => {
-    setOpen(false); setQuery(s.address); setBusy(true); setErr(null); setRes(null);
+    setOpen(false); setQuery(s.address); setErr(null); setRes(null); setListing(null);
+
+    // A listing-only address has no estimate to fetch. Show what we DO know
+    // rather than running a lookup that can only come back empty.
+    if (s.source === "listing" || !s.property_id) {
+      setListing(s);
+      return;
+    }
+
+    setBusy(true);
     try {
       if (demo) {
         await new Promise((r) => setTimeout(r, 600));
@@ -155,7 +179,7 @@ export default function BuyerValuation() {
                   placeholder="Start typing — e.g. 5535 Hastings"
                   autoComplete="off"
                   value={query}
-                  onChange={(e) => { setQuery(e.target.value); setRes(null); }}
+                  onChange={(e) => { setQuery(e.target.value); setRes(null); setListing(null); }}
                   onFocus={() => { if (sugg?.length) setOpen(true); }}
                   onKeyDown={onKey}
                   role="combobox"
@@ -171,7 +195,7 @@ export default function BuyerValuation() {
                 <ul id="jv-suggestions" role="listbox"
                   className="absolute z-30 mt-1 max-h-72 w-full overflow-y-auto rounded-xl border border-line bg-white py-1 shadow-lg">
                   {sugg.map((s, i) => (
-                    <li key={s.property_id} role="option" aria-selected={i === cursor}>
+                    <li key={s.property_id ?? s.listing_key ?? s.address} role="option" aria-selected={i === cursor}>
                       <button
                         type="button"
                         onMouseEnter={() => setCursor(i)}
@@ -179,7 +203,13 @@ export default function BuyerValuation() {
                         className={`flex w-full items-center gap-2 px-3 py-2.5 text-left text-sm transition ${i === cursor ? "bg-teal-soft text-teal-deep" : "hover:bg-gray-50"}`}
                       >
                         <MapPin size={14} className="shrink-0 text-gray-400" />
-                        <span className="min-w-0 truncate font-semibold">{s.address}</span>
+                        <span className="min-w-0 flex-1 truncate font-semibold">{s.address}</span>
+                        {/* Say up front which ones can actually produce an estimate. */}
+                        {s.source === "listing" && (
+                          <span className="shrink-0 rounded-full bg-gray-100 px-2 py-0.5 text-[10px] font-bold text-gray-500">
+                            listing only
+                          </span>
+                        )}
                       </button>
                     </li>
                   ))}
@@ -196,7 +226,7 @@ export default function BuyerValuation() {
 
           {/* Not "no match for that address" — the address may be perfectly real
               and simply outside the data JULY Value covers. Say which. */}
-          {noMatches && !res && (
+          {noMatches && !res && !listing && (
             <Card className="p-6">
               <p className="text-sm font-bold">Nothing found for that yet</p>
               <p className="mt-1 text-[13px] leading-relaxed text-gray-500">
@@ -207,6 +237,47 @@ export default function BuyerValuation() {
               </p>
               <Link href={`/hub/messages${q}`} className="btn btn-ghost btn-sm mt-3">Ask my advisor <ArrowRight size={14} /></Link>
             </Card>
+          )}
+
+          {/* Listing-only: a real address the estimator doesn't cover. Show the
+              asking price, which is a fact, and never imply it's a valuation. */}
+          {listing && (
+            <section>
+              <SectionLabel>What we know</SectionLabel>
+              <Card className="p-5 sm:p-6">
+                <p className="text-sm font-extrabold">{listing.address}</p>
+                {listing.list_price != null ? (
+                  <>
+                    <p className="tabular mt-2 text-3xl font-extrabold">{cad(listing.list_price)}</p>
+                    <p className="mt-0.5 text-[12px] font-semibold uppercase tracking-wide text-gray-400">
+                      {listing.status === "Active" ? "Current asking price" : "Last asking price"}
+                    </p>
+                  </>
+                ) : (
+                  <p className="mt-2 text-[13px] text-gray-500">No asking price on file for this one.</p>
+                )}
+                <p className="mt-3 flex gap-2 rounded-xl bg-amber-50 p-3 text-[12px] leading-relaxed text-amber-800">
+                  <Info size={15} className="mt-0.5 shrink-0" />
+                  <span>
+                    <strong>This is the asking price, not an estimate.</strong> JULY Value doesn&apos;t
+                    hold enough comparable sales for this property to put an independent number on it,
+                    so there&apos;s nothing here to check the asking price against — which is exactly
+                    when it&apos;s worth asking your advisor to pull the comparables by hand.
+                  </span>
+                </p>
+                <div className="mt-4 flex flex-wrap gap-2">
+                  <Link href={`/hub/messages${q}`} className="btn btn-primary btn-sm">
+                    Ask for the comparables <ArrowRight size={14} />
+                  </Link>
+                  {listing.listing_key && (
+                    <a href={`https://search.july.ca/listings/mls/${encodeURIComponent(listing.listing_key)}`}
+                      target="_blank" rel="noopener noreferrer" className="btn btn-ghost btn-sm">
+                      See the listing <ExternalLink size={13} />
+                    </a>
+                  )}
+                </div>
+              </Card>
+            </section>
           )}
 
           {res && !res.matched && (
@@ -267,7 +338,7 @@ export default function BuyerValuation() {
             </section>
           )}
 
-          {!res && !noMatches && (
+          {!res && !noMatches && !listing && (
             <Card className="p-6">
               <p className="flex items-center gap-2 text-sm font-extrabold"><TrendingUp size={16} className="text-teal-deep" /> Why check before you offer</p>
               <ul className="mt-3 space-y-2.5">

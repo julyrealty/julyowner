@@ -59,6 +59,35 @@ async function jvSearch(q: string, limit = 8): Promise<{ propertyId: string; add
   return [];
 }
 
+/**
+ * Addresses from the DDF listing set, via july-platform's hub_address_search.
+ *
+ * JULY Value's index is much sparser than the listings — on W 33rd Avenue in
+ * Vancouver it holds 2 properties against 16 in ddf_listings — so searching
+ * only JULY Value made the tool look broken for most real addresses. These
+ * results carry no estimate; they are marked so the UI can say so plainly.
+ */
+async function ddfSearch(q: string, limit = 6): Promise<
+  { address: string; city: string; list_price: number | null; status: string | null; listing_key: string }[]
+> {
+  const base = await cfg("platform_url");
+  const key = await cfg("platform_anon_key");
+  const secret = await cfg("platform_bridge_secret");
+  if (!base || !key || !secret || q.trim().length < 3) return [];
+  try {
+    const res = await fetch(`${base}/rest/v1/rpc/hub_address_search`, {
+      method: "POST",
+      headers: { apikey: key, "content-type": "application/json" },
+      body: JSON.stringify({ p_q: q, p_secret: secret, p_limit: limit }),
+    });
+    if (!res.ok) return [];
+    const body = await res.json().catch(() => null);
+    return Array.isArray(body?.results) ? body.results : [];
+  } catch {
+    return [];
+  }
+}
+
 /** Estimate for a propertyId the caller already picked from search results. */
 async function jvEstimateById(propertyId: string): Promise<JvEstimate | null> {
   const base = await cfg("julyvalue_api_url");
@@ -146,12 +175,32 @@ Deno.serve(async (req: Request) => {
     /* Autocomplete: only ever offers addresses JULY Value actually holds, which
        is the difference between picking one and guessing its stored spelling. */
     if (action === "search") {
-      const rows = await jvSearch(String(body.q ?? ""));
-      return new Response(JSON.stringify({
-        results: rows
-          .filter((r) => r?.propertyId)
-          .map((r) => ({ property_id: String(r.propertyId), address: String(r.address ?? "") })),
-      }), { headers: JSONH });
+      const q = String(body.q ?? "");
+      // Both sources at once. JULY Value entries lead because only they carry
+      // an estimate; listings fill the long tail so a real address still lands.
+      const [jv, ddf] = await Promise.all([jvSearch(q), ddfSearch(q)]);
+
+      const norm = (s: string) => s.toLowerCase().replace(/[^a-z0-9]/g, "");
+      const seen = new Set<string>();
+      const results: Record<string, unknown>[] = [];
+
+      for (const r of jv) {
+        if (!r?.propertyId) continue;
+        const addr = String(r.address ?? "");
+        seen.add(norm(addr));
+        results.push({ property_id: String(r.propertyId), address: addr, source: "value" });
+      }
+      for (const d of ddf) {
+        const addr = [d.address, d.city].filter(Boolean).join(", ");
+        if (!addr || seen.has(norm(addr))) continue;
+        seen.add(norm(addr));
+        results.push({
+          address: addr, source: "listing",
+          listing_key: d.listing_key, list_price: d.list_price ?? null, status: d.status ?? null,
+        });
+      }
+
+      return new Response(JSON.stringify({ results: results.slice(0, 10) }), { headers: JSONH });
     }
 
     // Picked from autocomplete: no address matching needed, we have the id.
