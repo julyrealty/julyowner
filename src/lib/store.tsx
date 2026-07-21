@@ -406,9 +406,21 @@ export function HubProvider({ children, demo }: { children: React.ReactNode; dem
         if (file) {
           storage_path = `${state.hub.id}/${uid()}-${d.name.replace(/[^\w.\-]+/g, "_")}`;
           const { error: upErr } = await sb().storage.from("ho-docs").upload(storage_path, file, { upsert: false });
-          if (upErr) storage_path = null;
+          // A failed upload must NOT fall through to inserting a fileless row.
+          // That put a document in the list with no bytes behind it, so the
+          // buyer thought it was saved and the AI review then failed with "no
+          // stored file". Fail loudly so the caller can say the upload didn't work.
+          if (upErr) throw new Error(`We couldn't upload ${d.name}. Please try again.`);
         }
-        const { data } = await sb().from("ho_documents").insert({ ...doc, id: undefined, created_at: undefined, hub_id: state.hub.id, storage_path }).select().single();
+        const { data, error } = await sb().from("ho_documents")
+          .insert({ ...doc, id: undefined, created_at: undefined, hub_id: state.hub.id, storage_path })
+          .select().single();
+        // If we uploaded bytes but the row insert failed, remove the orphan so
+        // storage doesn't fill with files nothing points at.
+        if (error) {
+          if (storage_path) { try { await sb().storage.from("ho-docs").remove([storage_path]); } catch { /* best effort */ } }
+          throw new Error(error.message);
+        }
         const saved = (data as Doc) || doc;
         setState((s) => ({ ...s, docs: [saved, ...s.docs] }));
         // Returned so an upload can flow straight into a scan without re-finding it.

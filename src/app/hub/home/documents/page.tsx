@@ -41,12 +41,18 @@ export default function DocumentsPage() {
 
   const inFolder = docs.filter((d) => d.folder === folder);
 
-  function handleFiles(files: FileList | null) {
+  async function handleFiles(files: FileList | null) {
     if (!files) return;
-    Array.from(files).forEach((f) => {
-      if (f.size > 20 * 1024 * 1024) { alert(`${f.name} is over the 20 MB limit.`); return; }
-      addDoc({ folder: folder || "Everything else", name: f.name, size_bytes: f.size }, f);
-    });
+    for (const f of Array.from(files)) {
+      if (f.size > 20 * 1024 * 1024) { alert(`${f.name} is over the 20 MB limit.`); continue; }
+      // addDoc now throws if the upload or insert fails, rather than adding a
+      // document with no file behind it. Surface that instead of pretending.
+      try {
+        await addDoc({ folder: folder || "Everything else", name: f.name, size_bytes: f.size }, f);
+      } catch (e) {
+        alert(e instanceof Error ? e.message : `We couldn't upload ${f.name}. Please try again.`);
+      }
+    }
   }
 
   async function openDoc(id: string) {
@@ -207,7 +213,7 @@ export default function DocumentsPage() {
       </Modal>
 
       <Modal open={newFolder} onClose={() => setNewFolder(false)} title="New folder">
-        <NewFolderForm onCreate={(name) => { addDoc({ folder: name, name: ".keep", size_bytes: 0 }); setNewFolder(false); setFolder(name); }} />
+        <NewFolderForm onCreate={(name) => { void addDoc({ folder: name, name: ".keep", size_bytes: 0 }).catch(() => {}); setNewFolder(false); setFolder(name); }} />
       </Modal>
 
       {/* AI SCAN */}
